@@ -1,5 +1,7 @@
+import { createLogger } from '@intellistore/shared-logger';
 import { config } from './config';
 import { HttpMetadataClient } from './clients/metadata.client';
+import type { EventPublisher } from './events/event-publisher';
 import { DownloadService } from './services/download.service';
 import { UploadService } from './services/upload.service';
 import { LocalFsStorageBackend } from './storage/local-fs-storage-backend';
@@ -21,11 +23,18 @@ function createStorageBackend(): StorageBackend {
   });
 }
 
+export const logger = createLogger({ serviceName: config.serviceName });
+
 export const storageBackend = createStorageBackend();
 export const metadataClient = new HttpMetadataClient(config.metadataServiceUrl);
-
-export const uploadService = new UploadService(storageBackend, metadataClient, {
-  chunkSizeBytes: config.chunkSizeBytes,
-});
-
 export const downloadService = new DownloadService(storageBackend, metadataClient);
+
+// Depends on a RabbitMQ connection, which is established asynchronously in
+// index.ts before the server starts accepting requests; see initUploadService.
+export let uploadService: UploadService;
+
+export function initUploadService(eventPublisher: EventPublisher): void {
+  uploadService = new UploadService(storageBackend, metadataClient, eventPublisher, {
+    chunkSizeBytes: config.chunkSizeBytes,
+  });
+}

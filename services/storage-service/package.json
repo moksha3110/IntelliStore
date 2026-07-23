@@ -15,6 +15,7 @@
     "@intellistore/shared-auth": "0.1.0",
     "@intellistore/shared-config": "0.1.0",
     "@intellistore/shared-logger": "0.1.0",
+    "@intellistore/shared-queue": "0.1.0",
     "@intellistore/shared-types": "0.1.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",

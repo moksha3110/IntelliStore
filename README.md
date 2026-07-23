@@ -5,8 +5,8 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 5 — MinIO object storage integration.** Remaining services
-> are still health-check-only skeletons; business logic lands in subsequent milestones.
+> Status: **Milestone 6 — replica manager.** Remaining services are still
+> health-check-only skeletons; business logic lands in subsequent milestones.
 
 ## Architecture
 
@@ -79,6 +79,7 @@ npm run build
 # 5. Run pending database migrations
 npm run migrate --workspace=@intellistore/auth-service
 npm run migrate --workspace=@intellistore/metadata-service
+npm run migrate --workspace=@intellistore/replication-service
 
 # 6. Run an individual service in dev mode
 npm run dev --workspace=services/auth-service
@@ -133,6 +134,34 @@ changes when swapping backends.
 | GET    | `/files/:id/download`                           | Reassemble and download the latest version |
 | GET    | `/files/:id/versions/:versionNumber/download`   | Reassemble and download a specific version |
 
+After a successful upload, storage-service publishes a `chunk-uploads` message
+to RabbitMQ (fire-and-forget — publish failures are logged, not surfaced to the
+caller, since the chunk is already durably stored and registered). This is
+consumed by replication-service to drive replication asynchronously.
+
+### Replication service (replica manager)
+
+Consumes the `chunk-uploads` queue from RabbitMQ. For each chunk, copies the
+object from the primary bucket to `REPLICATION_FACTOR` additional storage
+nodes (default 2, chosen as the least-used healthy nodes) via MinIO's
+server-side `copyObject`, and records one `chunk_replicas` row per target node.
+
+**Simulated topology**: this project runs a single MinIO container, so "nodes"
+are simulated as separate buckets (`intellistore-node-1/2/3`) rather than
+physically distinct servers — a deliberate simplification given the available
+infra. The replica-tracking model (`storage_nodes`, `chunk_replicas`,
+least-used node selection, per-node failure isolation) is written so that
+swapping in real distinct MinIO/S3 endpoints per node would only require
+changing `NodeStorage`'s configuration, not the replication logic itself.
+
+Requires `Authorization: Bearer <access token>` (any authenticated user — this
+data isn't per-owner).
+
+| Method | Route                              | Description                          |
+| ------ | ----------------------------------- | ------------------------------------- |
+| GET    | `/nodes`                            | List simulated storage nodes and usage |
+| GET    | `/chunks/:chunkId/replicas`         | List replicas recorded for a chunk    |
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -146,8 +175,8 @@ changes when swapping backends.
 2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(done)*
 3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(done)*
 4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(done)*
-5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(this milestone)*
-6. Replica manager
+5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(done)*
+6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(this milestone)*
 7. Distributed node heartbeat monitoring
 8. Automatic self-healing replication
 9. AI storage analytics dashboard

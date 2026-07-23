@@ -14,4 +14,5 @@ export const config = {
   storageDataDir: process.env.STORAGE_DATA_DIR ?? join(process.cwd(), '.data', 'chunks'),
   storageBackendType: (process.env.STORAGE_BACKEND ?? 'minio') as 'minio' | 'local',
   minioUseSSL: process.env.MINIO_USE_SSL === 'true',
+  chunkUploadsQueue: process.env.CHUNK_UPLOADS_QUEUE ?? 'chunk-uploads',
 };

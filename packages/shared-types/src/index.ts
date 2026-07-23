@@ -71,3 +71,15 @@ export interface JwtPayload {
   iat?: number;
   exp?: number;
 }
+
+export interface ChunkUploadedEvent {
+  chunkId: string;
+  storageKey: string;
+  sizeBytes: number;
+}
+
+export interface ChunkUploadedBatchEvent {
+  fileId: string;
+  versionId: string;
+  chunks: ChunkUploadedEvent[];
+}

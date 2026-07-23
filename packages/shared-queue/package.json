@@ -1,0 +1,20 @@
+{
+  "name": "@intellistore/shared-queue",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "amqplib": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "rimraf": "^5.0.9",
+    "typescript": "^5.5.4"
+  }
+}

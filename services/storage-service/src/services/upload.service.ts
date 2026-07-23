@@ -8,6 +8,7 @@ import type {
   RegisterFileResult,
 } from '../clients/metadata.client';
 import { AppError } from '../errors/app-error';
+import type { EventPublisher } from '../events/event-publisher';
 import type { StorageBackend } from '../storage/storage-backend';
 
 export interface UploadServiceOptions {
@@ -18,6 +19,7 @@ export class UploadService {
   constructor(
     private readonly storageBackend: StorageBackend,
     private readonly metadataClient: MetadataClient,
+    private readonly eventPublisher: EventPublisher,
     private readonly options: UploadServiceOptions,
   ) {}
 
@@ -29,9 +31,11 @@ export class UploadService {
   ): Promise<RegisterFileResult> {
     const { chunkKeys, payload } = await this.storeChunks(buffer, mimeType);
 
-    return this.registerWithCleanup(chunkKeys, () =>
+    const result = await this.registerWithCleanup(chunkKeys, () =>
       this.metadataClient.registerFile(bearerToken, { fileName, ...payload }),
     );
+    await this.publishChunkUploaded(result.file.id, result.version.id, result.chunks);
+    return result;
   }
 
   async uploadNewVersion(
@@ -42,9 +46,27 @@ export class UploadService {
   ): Promise<{ version: FileVersionDto; chunks: ChunkDto[] }> {
     const { chunkKeys, payload } = await this.storeChunks(buffer, mimeType);
 
-    return this.registerWithCleanup(chunkKeys, () =>
+    const result = await this.registerWithCleanup(chunkKeys, () =>
       this.metadataClient.addVersion(bearerToken, fileId, payload),
     );
+    await this.publishChunkUploaded(fileId, result.version.id, result.chunks);
+    return result;
+  }
+
+  private async publishChunkUploaded(
+    fileId: string,
+    versionId: string,
+    chunks: ChunkDto[],
+  ): Promise<void> {
+    await this.eventPublisher.publishChunkUploaded({
+      fileId,
+      versionId,
+      chunks: chunks.map((chunk) => ({
+        chunkId: chunk.id,
+        storageKey: chunk.storageKey,
+        sizeBytes: chunk.sizeBytes,
+      })),
+    });
   }
 
   private async storeChunks(
