@@ -5,8 +5,8 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 1 — monorepo scaffold.** Business logic for each service
-> lands in subsequent milestones.
+> Status: **Milestone 2 — JWT authentication service.** Remaining services are
+> still health-check-only skeletons; business logic lands in subsequent milestones.
 
 ## Architecture
 
@@ -76,12 +76,24 @@ docker compose up -d
 # 4. Build all workspaces (type-check + compile)
 npm run build
 
-# 5. Run an individual service in dev mode
+# 5. Run pending database migrations (auth-service)
+npm run migrate --workspace=@intellistore/auth-service
+
+# 6. Run an individual service in dev mode
 npm run dev --workspace=services/auth-service
 
-# 6. Run the frontend
+# 7. Run the frontend
 npm run dev --workspace=apps/web
 ```
+
+### Auth service endpoints
+
+| Method | Route            | Auth           | Description                      |
+| ------ | ---------------- | -------------- | -------------------------------- |
+| POST   | `/auth/register` | —              | Create an account, returns JWTs  |
+| POST   | `/auth/login`    | —              | Verify credentials, returns JWTs |
+| POST   | `/auth/refresh`  | —              | Exchange a refresh token         |
+| GET    | `/auth/me`       | Bearer access  | Current user profile             |
 
 ## Engineering standards
 
@@ -92,8 +104,8 @@ npm run dev --workspace=apps/web
 
 ## Milestones
 
-1. **Monorepo scaffold** — workspaces, shared packages, service skeletons, infra compose *(this milestone)*
-2. JWT authentication service
+1. **Monorepo scaffold** — workspaces, shared packages, service skeletons, infra compose *(done)*
+2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(this milestone)*
 3. Metadata service for file tracking
 4. Chunk upload pipeline
 5. MinIO object storage integration

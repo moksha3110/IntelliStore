@@ -1,7 +1,23 @@
 import { config as loadDotenv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
-loadDotenv();
+function findRepoRootEnvPath(): string | undefined {
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i += 1) {
+    const candidate = join(dir, '.env');
+    if (existsSync(join(dir, 'docker-compose.yml')) && existsSync(candidate)) {
+      return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return undefined;
+}
+
+loadDotenv({ path: findRepoRootEnvPath() });
 
 const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -28,6 +44,7 @@ const baseEnvSchema = z.object({
   MINIO_BUCKET: z.string().default('intellistore-chunks'),
 
   JWT_SECRET: z.string().default('change-me-in-production'),
+  JWT_REFRESH_SECRET: z.string().default('change-me-refresh-in-production'),
   JWT_EXPIRES_IN: z.string().default('1h'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 });
