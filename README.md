@@ -5,8 +5,8 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 4 — chunk upload pipeline.** Remaining services are still
-> health-check-only skeletons; business logic lands in subsequent milestones.
+> Status: **Milestone 5 — MinIO object storage integration.** Remaining services
+> are still health-check-only skeletons; business logic lands in subsequent milestones.
 
 ## Architecture
 
@@ -114,10 +114,17 @@ All routes require `Authorization: Bearer <access token>` issued by auth-service
 
 Requires `Authorization: Bearer <access token>`. Splits uploads into fixed-size
 chunks (`CHUNK_SIZE_BYTES`, default 4 MiB), hashes each chunk and the whole file
-(SHA-256), writes chunks to a local `StorageBackend` (filesystem today, MinIO in
-a later milestone — same interface), and registers the result with
-metadata-service by forwarding the caller's token. Download reassembles chunks
-in order and re-verifies the whole-file checksum before responding.
+(SHA-256), writes chunks through a `StorageBackend` interface, and registers the
+result with metadata-service by forwarding the caller's token. Download
+reassembles chunks in order and re-verifies the whole-file checksum before
+responding.
+
+Chunk bytes are stored in MinIO (`STORAGE_BACKEND=minio`, the default — the
+bucket named `MINIO_BUCKET` is created automatically on startup if missing).
+Set `STORAGE_BACKEND=local` to fall back to a filesystem backend under
+`STORAGE_DATA_DIR` (useful in environments without Docker, e.g. CI). Both
+implement the same `StorageBackend` interface, so upload/download logic never
+changes when swapping backends.
 
 | Method | Route                                          | Description                        |
 | ------ | ----------------------------------------------- | ----------------------------------- |
@@ -138,8 +145,8 @@ in order and re-verifies the whole-file checksum before responding.
 1. **Monorepo scaffold** — workspaces, shared packages, service skeletons, infra compose *(done)*
 2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(done)*
 3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(done)*
-4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(this milestone)*
-5. MinIO object storage integration
+4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(done)*
+5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(this milestone)*
 6. Replica manager
 7. Distributed node heartbeat monitoring
 8. Automatic self-healing replication
