@@ -5,8 +5,9 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 6 — replica manager.** Remaining services are still
-> health-check-only skeletons; business logic lands in subsequent milestones.
+> Status: **Milestone 7 — distributed node heartbeat monitoring.** Remaining
+> services are still health-check-only skeletons; business logic lands in
+> subsequent milestones.
 
 ## Architecture
 
@@ -162,6 +163,26 @@ data isn't per-owner).
 | GET    | `/nodes`                            | List simulated storage nodes and usage |
 | GET    | `/chunks/:chunkId/replicas`         | List replicas recorded for a chunk    |
 
+### Node heartbeat monitoring
+
+Two complementary mechanisms keep `storage_nodes.is_healthy` accurate:
+
+- **Push**: each node calls `POST /nodes/:name/heartbeat` (intentionally
+  unauthenticated — a storage node has no user identity to present; in
+  production this would sit behind network-level restriction rather than a
+  user JWT) to report itself alive. `scripts/node-agent.ts` simulates this —
+  run `npm run simulate:node --workspace=@intellistore/replication-service`
+  with `NODE_NAME=node-1|node-2|node-3` to simulate one node's agent.
+- **Pull**: a background sweep (`HeartbeatMonitor`, every
+  `HEARTBEAT_SWEEP_INTERVAL_MS`) marks any node unhealthy once it's gone
+  longer than `HEARTBEAT_STALE_MS` without a heartbeat.
+
+`ReplicationService` already only selects from `listHealthy()` (milestone 6),
+so a node that stops heartbeating is automatically excluded from new replica
+placement — verified live by running agents for only 2 of the 3 nodes,
+watching the third go unhealthy after the staleness window, and confirming a
+subsequent upload's replicas landed only on the two healthy nodes.
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -176,8 +197,8 @@ data isn't per-owner).
 3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(done)*
 4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(done)*
 5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(done)*
-6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(this milestone)*
-7. Distributed node heartbeat monitoring
+6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(done)*
+7. **Distributed node heartbeat monitoring** — push heartbeats + a staleness sweep, unhealthy nodes automatically excluded from replication *(this milestone)*
 8. Automatic self-healing replication
 9. AI storage analytics dashboard
 10. Kubernetes deployment

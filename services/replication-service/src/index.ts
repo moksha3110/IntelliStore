@@ -2,7 +2,7 @@ import { connectWithRetry, consumeJson } from '@intellistore/shared-queue';
 import type { ChunkUploadedBatchEvent } from '@intellistore/shared-types';
 import { config } from './config';
 import { createApp } from './app';
-import { logger, nodeRepository, nodeStorage, replicationService } from './container';
+import { heartbeatMonitor, logger, nodeRepository, nodeStorage, replicationService } from './container';
 
 async function main(): Promise<void> {
   logger.info('ensuring simulated storage node buckets exist');
@@ -30,6 +30,11 @@ async function main(): Promise<void> {
     }
   });
   logger.info(`consuming queue "${config.chunkUploadsQueue}"`);
+
+  heartbeatMonitor.start(config.heartbeatSweepIntervalMs);
+  logger.info(
+    `heartbeat staleness sweep running every ${config.heartbeatSweepIntervalMs}ms (stale after ${config.heartbeatStaleMs}ms)`,
+  );
 
   const app = createApp(logger);
   app.listen(config.port, () => {

@@ -27,8 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_chunk_replicas_chunk_id ON chunk_replicas (chunk_
 
 -- Simulated storage nodes: distinct MinIO buckets standing in for physically
 -- separate nodes, since this project runs against a single MinIO instance.
-INSERT INTO storage_nodes (name, bucket) VALUES
-  ('node-1', 'intellistore-node-1'),
-  ('node-2', 'intellistore-node-2'),
-  ('node-3', 'intellistore-node-3')
+-- last_heartbeat_at starts at "now" (not NULL) so a fresh install isn't
+-- immediately marked stale before any node agent has had a chance to check in.
+INSERT INTO storage_nodes (name, bucket, last_heartbeat_at) VALUES
+  ('node-1', 'intellistore-node-1', now()),
+  ('node-2', 'intellistore-node-2', now()),
+  ('node-3', 'intellistore-node-3', now())
 ON CONFLICT (name) DO NOTHING;

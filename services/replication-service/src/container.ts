@@ -3,6 +3,7 @@ import { config } from './config';
 import { pool } from './db/pool';
 import { PgNodeRepository } from './repositories/node.repository';
 import { PgReplicaRepository } from './repositories/replica.repository';
+import { HeartbeatMonitor } from './services/heartbeat-monitor';
 import { ReplicationService } from './services/replication.service';
 import { MinioNodeStorage } from './storage/minio-node-storage';
 
@@ -24,5 +25,11 @@ export const replicationService = new ReplicationService(
   replicaRepository,
   nodeStorage,
   { replicationFactor: config.replicationFactor, primaryBucket: config.MINIO_BUCKET },
+  logger,
+);
+
+export const heartbeatMonitor = new HeartbeatMonitor(
+  nodeRepository,
+  config.heartbeatStaleMs,
   logger,
 );

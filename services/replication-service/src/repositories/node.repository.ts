@@ -36,8 +36,11 @@ export interface NodeRepository {
   listAll(): Promise<StorageNodeRecord[]>;
   listHealthy(): Promise<StorageNodeRecord[]>;
   findById(id: string): Promise<StorageNodeRecord | null>;
+  findByName(name: string): Promise<StorageNodeRecord | null>;
   incrementUsedBytes(id: string, deltaBytes: number): Promise<void>;
   setHealth(id: string, isHealthy: boolean, heartbeatAt: string): Promise<void>;
+  /** Marks a node unhealthy without touching last_heartbeat_at, so how stale it is remains visible. */
+  markStale(id: string): Promise<void>;
 }
 
 export class PgNodeRepository implements NodeRepository {
@@ -62,6 +65,14 @@ export class PgNodeRepository implements NodeRepository {
     return result.rows[0] ? toNode(result.rows[0]) : null;
   }
 
+  async findByName(name: string): Promise<StorageNodeRecord | null> {
+    const result = await this.pool.query<StorageNodeRow>(
+      'SELECT * FROM storage_nodes WHERE name = $1',
+      [name],
+    );
+    return result.rows[0] ? toNode(result.rows[0]) : null;
+  }
+
   async incrementUsedBytes(id: string, deltaBytes: number): Promise<void> {
     await this.pool.query(
       'UPDATE storage_nodes SET used_bytes = used_bytes + $2, updated_at = now() WHERE id = $1',
@@ -73,6 +84,13 @@ export class PgNodeRepository implements NodeRepository {
     await this.pool.query(
       'UPDATE storage_nodes SET is_healthy = $2, last_heartbeat_at = $3, updated_at = now() WHERE id = $1',
       [id, isHealthy, heartbeatAt],
+    );
+  }
+
+  async markStale(id: string): Promise<void> {
+    await this.pool.query(
+      'UPDATE storage_nodes SET is_healthy = false, updated_at = now() WHERE id = $1',
+      [id],
     );
   }
 }

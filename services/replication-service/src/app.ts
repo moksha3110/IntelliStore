@@ -5,6 +5,7 @@ import type { Logger } from '@intellistore/shared-logger';
 import type { ApiResponse } from '@intellistore/shared-types';
 import { AppError } from './errors/app-error';
 import { healthRouter } from './routes/health.route';
+import { heartbeatRouter } from './routes/heartbeat.route';
 import { replicaRouter } from './routes/replica.route';
 
 export function createApp(logger: Logger): Express {
@@ -20,6 +21,7 @@ export function createApp(logger: Logger): Express {
   });
 
   app.use(healthRouter);
+  app.use(heartbeatRouter);
   app.use(replicaRouter);
 
   app.use((_req: Request, res: Response) => {

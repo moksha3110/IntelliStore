@@ -15,6 +15,10 @@ export class InMemoryNodeRepository implements NodeRepository {
     return this.nodes.find((node) => node.id === id) ?? null;
   }
 
+  async findByName(name: string): Promise<StorageNodeRecord | null> {
+    return this.nodes.find((node) => node.name === name) ?? null;
+  }
+
   async incrementUsedBytes(id: string, deltaBytes: number): Promise<void> {
     const node = this.nodes.find((n) => n.id === id);
     if (node) node.usedBytes += deltaBytes;
@@ -26,6 +30,11 @@ export class InMemoryNodeRepository implements NodeRepository {
       node.isHealthy = isHealthy;
       node.lastHeartbeatAt = heartbeatAt;
     }
+  }
+
+  async markStale(id: string): Promise<void> {
+    const node = this.nodes.find((n) => n.id === id);
+    if (node) node.isHealthy = false;
   }
 }
 
