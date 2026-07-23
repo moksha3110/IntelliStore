@@ -5,7 +5,7 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 3 — metadata service.** Remaining services are still
+> Status: **Milestone 4 — chunk upload pipeline.** Remaining services are still
 > health-check-only skeletons; business logic lands in subsequent milestones.
 
 ## Architecture
@@ -110,9 +110,21 @@ All routes require `Authorization: Bearer <access token>` issued by auth-service
 | POST   | `/files/:id/versions`               | Add a new version (chunks) to a file      |
 | GET    | `/files/:id/versions/:versionNumber`| Version detail with its chunks            |
 
-Note: chunk bytes themselves aren't stored yet — `storageKey`/checksums are recorded
-as metadata now; storage-service will actually write chunk bytes to MinIO in a later
-milestone and call these endpoints (or be called by the same client) with the real keys.
+### Storage service endpoints (chunk upload pipeline)
+
+Requires `Authorization: Bearer <access token>`. Splits uploads into fixed-size
+chunks (`CHUNK_SIZE_BYTES`, default 4 MiB), hashes each chunk and the whole file
+(SHA-256), writes chunks to a local `StorageBackend` (filesystem today, MinIO in
+a later milestone — same interface), and registers the result with
+metadata-service by forwarding the caller's token. Download reassembles chunks
+in order and re-verifies the whole-file checksum before responding.
+
+| Method | Route                                          | Description                        |
+| ------ | ----------------------------------------------- | ----------------------------------- |
+| POST   | `/files` (multipart, field `file`)              | Chunk + store + register a new file |
+| POST   | `/files/:id/versions` (multipart, field `file`) | Chunk + store + register a new version |
+| GET    | `/files/:id/download`                           | Reassemble and download the latest version |
+| GET    | `/files/:id/versions/:versionNumber/download`   | Reassemble and download a specific version |
 
 ## Engineering standards
 
@@ -125,8 +137,8 @@ milestone and call these endpoints (or be called by the same client) with the re
 
 1. **Monorepo scaffold** — workspaces, shared packages, service skeletons, infra compose *(done)*
 2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(done)*
-3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(this milestone)*
-4. Chunk upload pipeline
+3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(done)*
+4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(this milestone)*
 5. MinIO object storage integration
 6. Replica manager
 7. Distributed node heartbeat monitoring

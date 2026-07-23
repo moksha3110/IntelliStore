@@ -1,9 +1,12 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import { MulterError } from 'multer';
 import type { Logger } from '@intellistore/shared-logger';
 import type { ApiResponse } from '@intellistore/shared-types';
+import { AppError } from './errors/app-error';
 import { healthRouter } from './routes/health.route';
+import { uploadRouter } from './routes/upload.route';
 
 export function createApp(logger: Logger): Express {
   const app = express();
@@ -18,6 +21,7 @@ export function createApp(logger: Logger): Express {
   });
 
   app.use(healthRouter);
+  app.use('/files', uploadRouter);
 
   app.use((_req: Request, res: Response) => {
     const body: ApiResponse<never> = {
@@ -28,6 +32,24 @@ export function createApp(logger: Logger): Express {
   });
 
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof AppError) {
+      const body: ApiResponse<never> = {
+        success: false,
+        error: { code: err.code, message: err.message, details: err.details },
+      };
+      res.status(err.statusCode).json(body);
+      return;
+    }
+
+    if (err instanceof MulterError) {
+      const body: ApiResponse<never> = {
+        success: false,
+        error: { code: 'BAD_REQUEST', message: err.message },
+      };
+      res.status(400).json(body);
+      return;
+    }
+
     logger.error({ err }, 'unhandled error');
     const body: ApiResponse<never> = {
       success: false,

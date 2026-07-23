@@ -24,3 +24,4 @@ Thumbs.db
 
 minio-data/
 postgres-data/
+.data/
