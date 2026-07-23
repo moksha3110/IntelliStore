@@ -1,0 +1,33 @@
+{
+  "name": "intellistore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IntelliStore - AI-Powered Distributed Storage Platform",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "prebuild": "npm run build --workspace=@intellistore/shared-types --workspace=@intellistore/shared-logger --workspace=@intellistore/shared-config",
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

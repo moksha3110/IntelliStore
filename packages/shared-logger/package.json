@@ -1,0 +1,20 @@
+{
+  "name": "@intellistore/shared-logger",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.9",
+    "typescript": "^5.5.4"
+  }
+}
