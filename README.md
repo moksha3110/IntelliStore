@@ -5,8 +5,8 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 2 — JWT authentication service.** Remaining services are
-> still health-check-only skeletons; business logic lands in subsequent milestones.
+> Status: **Milestone 3 — metadata service.** Remaining services are still
+> health-check-only skeletons; business logic lands in subsequent milestones.
 
 ## Architecture
 
@@ -76,8 +76,9 @@ docker compose up -d
 # 4. Build all workspaces (type-check + compile)
 npm run build
 
-# 5. Run pending database migrations (auth-service)
+# 5. Run pending database migrations
 npm run migrate --workspace=@intellistore/auth-service
+npm run migrate --workspace=@intellistore/metadata-service
 
 # 6. Run an individual service in dev mode
 npm run dev --workspace=services/auth-service
@@ -95,6 +96,24 @@ npm run dev --workspace=apps/web
 | POST   | `/auth/refresh`  | —              | Exchange a refresh token         |
 | GET    | `/auth/me`       | Bearer access  | Current user profile             |
 
+### Metadata service endpoints
+
+All routes require `Authorization: Bearer <access token>` issued by auth-service
+(services share `JWT_SECRET`, so tokens verify across services without a network call).
+
+| Method | Route                              | Description                              |
+| ------ | ----------------------------------- | ----------------------------------------- |
+| POST   | `/files`                            | Register a file + its first version/chunks |
+| GET    | `/files`                            | List the caller's files with latest version |
+| GET    | `/files/:id`                        | File detail with all versions             |
+| DELETE | `/files/:id`                        | Soft-delete a file                        |
+| POST   | `/files/:id/versions`               | Add a new version (chunks) to a file      |
+| GET    | `/files/:id/versions/:versionNumber`| Version detail with its chunks            |
+
+Note: chunk bytes themselves aren't stored yet — `storageKey`/checksums are recorded
+as metadata now; storage-service will actually write chunk bytes to MinIO in a later
+milestone and call these endpoints (or be called by the same client) with the real keys.
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -105,8 +124,8 @@ npm run dev --workspace=apps/web
 ## Milestones
 
 1. **Monorepo scaffold** — workspaces, shared packages, service skeletons, infra compose *(done)*
-2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(this milestone)*
-3. Metadata service for file tracking
+2. **JWT authentication service** — register/login/refresh/me, bcrypt hashing, Postgres repository *(done)*
+3. **Metadata service for file tracking** — files/versions/chunks, cross-service JWT verification *(this milestone)*
 4. Chunk upload pipeline
 5. MinIO object storage integration
 6. Replica manager

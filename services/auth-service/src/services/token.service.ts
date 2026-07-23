@@ -1,13 +1,7 @@
-import jwt from 'jsonwebtoken';
+import { signToken, verifyToken, TokenError, type TokenClaims } from '@intellistore/shared-auth';
 import { AppError } from '../errors/app-error';
 
-export type TokenType = 'access' | 'refresh';
-
-export interface TokenClaims {
-  sub: string;
-  email: string;
-  type: TokenType;
-}
+export type { TokenClaims };
 
 export interface TokenPair {
   accessToken: string;
@@ -25,16 +19,16 @@ export class TokenService {
   constructor(private readonly options: TokenServiceOptions) {}
 
   issueTokenPair(user: { id: string; email: string }): TokenPair {
-    const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, type: 'access' } satisfies TokenClaims,
+    const accessToken = signToken(
+      { sub: user.id, email: user.email, type: 'access' },
       this.options.accessSecret,
-      { expiresIn: this.options.accessExpiresIn } as jwt.SignOptions,
+      this.options.accessExpiresIn,
     );
 
-    const refreshToken = jwt.sign(
-      { sub: user.id, email: user.email, type: 'refresh' } satisfies TokenClaims,
+    const refreshToken = signToken(
+      { sub: user.id, email: user.email, type: 'refresh' },
       this.options.refreshSecret,
-      { expiresIn: this.options.refreshExpiresIn } as jwt.SignOptions,
+      this.options.refreshExpiresIn,
     );
 
     return { accessToken, refreshToken };
@@ -48,23 +42,14 @@ export class TokenService {
     return this.verify(token, this.options.refreshSecret, 'refresh');
   }
 
-  private verify(token: string, secret: string, expectedType: TokenType): TokenClaims {
-    let decoded: jwt.JwtPayload | string;
+  private verify(token: string, secret: string, expectedType: TokenClaims['type']): TokenClaims {
     try {
-      decoded = jwt.verify(token, secret);
-    } catch {
-      throw AppError.unauthorized('Invalid or expired token');
+      return verifyToken(token, secret, expectedType);
+    } catch (err) {
+      if (err instanceof TokenError) {
+        throw AppError.unauthorized(err.message);
+      }
+      throw err;
     }
-
-    if (typeof decoded === 'string') {
-      throw AppError.unauthorized('Malformed token');
-    }
-
-    const { sub, email, type } = decoded as Partial<TokenClaims>;
-    if (!sub || !email || type !== expectedType) {
-      throw AppError.unauthorized('Malformed token');
-    }
-
-    return { sub, email, type };
   }
 }
