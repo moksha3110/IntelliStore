@@ -18,6 +18,15 @@ replicaRouter.get(
 );
 
 replicaRouter.get(
+  '/diagnostics',
+  asyncHandler(async (_req, res) => {
+    const diagnostics = await replicationService.getDiagnostics();
+    const body: ApiResponse<typeof diagnostics> = { success: true, data: diagnostics };
+    res.status(200).json(body);
+  }),
+);
+
+replicaRouter.get(
   '/chunks/:chunkId/replicas',
   asyncHandler(async (req, res) => {
     const replicas = await replicationService.listReplicas(req.params.chunkId);

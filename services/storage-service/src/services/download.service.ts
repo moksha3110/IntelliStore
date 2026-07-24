@@ -1,6 +1,7 @@
 import { sha256 } from '../chunking/chunking.service';
 import type { MetadataClient } from '../clients/metadata.client';
 import { AppError } from '../errors/app-error';
+import type { EventPublisher } from '../events/event-publisher';
 import type { StorageBackend } from '../storage/storage-backend';
 
 export interface DownloadResult {
@@ -14,6 +15,7 @@ export class DownloadService {
   constructor(
     private readonly storageBackend: StorageBackend,
     private readonly metadataClient: MetadataClient,
+    private readonly eventPublisher: EventPublisher,
   ) {}
 
   async download(
@@ -41,6 +43,12 @@ export class DownloadService {
     if (sha256(combined) !== versionDetail.version.checksum) {
       throw AppError.integrityFailure('Reconstructed file failed checksum verification');
     }
+
+    await this.eventPublisher.publishFileAccessed({
+      fileId,
+      versionId: versionDetail.version.id,
+      accessedAt: new Date().toISOString(),
+    });
 
     return {
       buffer: combined,

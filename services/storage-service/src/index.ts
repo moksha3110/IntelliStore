@@ -1,7 +1,7 @@
 import { connectWithRetry } from '@intellistore/shared-queue';
 import { config } from './config';
 import { createApp } from './app';
-import { initUploadService, logger, storageBackend } from './container';
+import { initServices, logger, storageBackend } from './container';
 import { RabbitMqEventPublisher } from './events/rabbitmq-event-publisher';
 
 async function main(): Promise<void> {
@@ -16,7 +16,13 @@ async function main(): Promise<void> {
     password: config.RABBITMQ_PASSWORD,
   });
   const channel = await connection.createChannel();
-  initUploadService(new RabbitMqEventPublisher(channel, config.chunkUploadsQueue, logger));
+  initServices(
+    new RabbitMqEventPublisher(
+      channel,
+      { chunkUploads: config.chunkUploadsQueue, fileAccess: config.fileAccessQueue },
+      logger,
+    ),
+  );
 
   const app = createApp(logger);
   app.listen(config.port, () => {

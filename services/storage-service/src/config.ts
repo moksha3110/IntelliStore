@@ -15,4 +15,5 @@ export const config = {
   storageBackendType: (process.env.STORAGE_BACKEND ?? 'minio') as 'minio' | 'local',
   minioUseSSL: process.env.MINIO_USE_SSL === 'true',
   chunkUploadsQueue: process.env.CHUNK_UPLOADS_QUEUE ?? 'chunk-uploads',
+  fileAccessQueue: process.env.FILE_ACCESS_QUEUE ?? 'file-access-events',
 };

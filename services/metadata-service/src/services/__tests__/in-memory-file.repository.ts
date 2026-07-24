@@ -5,6 +5,7 @@ import type {
   FileRecord,
   FileRepository,
   FileVersionRecord,
+  SystemStats,
 } from '../../repositories/file.repository';
 
 export class InMemoryFileRepository implements FileRepository {
@@ -100,5 +101,35 @@ export class InMemoryFileRepository implements FileRepository {
     return [...(this.chunks.get(fileVersionId) ?? [])].sort(
       (a, b) => a.chunkIndex - b.chunkIndex,
     );
+  }
+
+  async getSystemStats(): Promise<SystemStats> {
+    // Matches the SQL implementation's semantics: version/chunk counts are
+    // unconditional totals, only totalBytes and totalFiles are scoped to
+    // non-deleted files (a soft-deleted file's historical rows still count
+    // toward version/chunk totals, but not toward "current" logical bytes).
+    const activeFiles = [...this.files.values()].filter((file) => !file.isDeleted);
+    let totalVersions = 0;
+    let totalBytes = 0;
+
+    for (const versions of this.versions.values()) {
+      totalVersions += versions.length;
+    }
+
+    for (const file of activeFiles) {
+      const versions = this.versions.get(file.id) ?? [];
+      const latest = versions.reduce<FileVersionRecord | null>(
+        (best, current) => (!best || current.versionNumber > best.versionNumber ? current : best),
+        null,
+      );
+      if (latest) totalBytes += latest.sizeBytes;
+    }
+
+    return {
+      totalFiles: activeFiles.length,
+      totalVersions,
+      totalChunks: [...this.chunks.values()].reduce((sum, list) => sum + list.length, 0),
+      totalBytes,
+    };
   }
 }

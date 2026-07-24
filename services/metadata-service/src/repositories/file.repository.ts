@@ -97,11 +97,19 @@ function toChunk(row: ChunkRow): ChunkRecord {
   };
 }
 
+export interface SystemStats {
+  totalFiles: number;
+  totalVersions: number;
+  totalChunks: number;
+  totalBytes: number;
+}
+
 export interface FileRepository {
   createFile(ownerId: string, fileName: string): Promise<FileRecord>;
   findFileById(id: string): Promise<FileRecord | null>;
   listFilesByOwner(ownerId: string): Promise<FileRecord[]>;
   softDeleteFile(id: string): Promise<void>;
+  getSystemStats(): Promise<SystemStats>;
 
   createVersion(
     fileId: string,
@@ -145,6 +153,33 @@ export class PgFileRepository implements FileRepository {
     await this.pool.query('UPDATE files SET is_deleted = true, updated_at = now() WHERE id = $1', [
       id,
     ]);
+  }
+
+  async getSystemStats(): Promise<SystemStats> {
+    const result = await this.pool.query<{
+      total_files: string;
+      total_versions: string;
+      total_chunks: string;
+      total_bytes: string;
+    }>(`
+      SELECT
+        (SELECT count(*) FROM files WHERE is_deleted = false) AS total_files,
+        (SELECT count(*) FROM file_versions) AS total_versions,
+        (SELECT count(*) FROM chunks) AS total_chunks,
+        (SELECT COALESCE(SUM(latest.size_bytes), 0) FROM (
+           SELECT DISTINCT ON (fv.file_id) fv.size_bytes
+           FROM file_versions fv
+           JOIN files f ON f.id = fv.file_id AND f.is_deleted = false
+           ORDER BY fv.file_id, fv.version_number DESC
+         ) latest) AS total_bytes
+    `);
+    const row = result.rows[0];
+    return {
+      totalFiles: Number(row.total_files),
+      totalVersions: Number(row.total_versions),
+      totalChunks: Number(row.total_chunks),
+      totalBytes: Number(row.total_bytes),
+    };
   }
 
   async createVersion(

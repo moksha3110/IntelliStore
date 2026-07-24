@@ -5,9 +5,9 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 8 — automatic self-healing replication.** Remaining
-> services are still health-check-only skeletons; business logic lands in
-> subsequent milestones.
+> Status: **Milestone 9 — AI storage analytics dashboard.** The API gateway
+> and notification service are still health-check-only skeletons; that's the
+> only remaining backend scaffolding before Kubernetes and docs.
 
 ## Architecture
 
@@ -81,6 +81,7 @@ npm run build
 npm run migrate --workspace=@intellistore/auth-service
 npm run migrate --workspace=@intellistore/metadata-service
 npm run migrate --workspace=@intellistore/replication-service
+npm run migrate --workspace=@intellistore/ai-analytics-service
 
 # 6. Run an individual service in dev mode
 npm run dev --workspace=services/auth-service
@@ -111,6 +112,7 @@ All routes require `Authorization: Bearer <access token>` issued by auth-service
 | DELETE | `/files/:id`                        | Soft-delete a file                        |
 | POST   | `/files/:id/versions`               | Add a new version (chunks) to a file      |
 | GET    | `/files/:id/versions/:versionNumber`| Version detail with its chunks            |
+| GET    | `/files/_stats`                     | System-wide totals (files/versions/chunks/bytes), consumed by ai-analytics-service |
 
 ### Storage service endpoints (chunk upload pipeline)
 
@@ -161,6 +163,7 @@ data isn't per-owner).
 | Method | Route                              | Description                          |
 | ------ | ----------------------------------- | ------------------------------------- |
 | GET    | `/nodes`                            | List simulated storage nodes and usage |
+| GET    | `/diagnostics`                      | Node health + under-replicated chunk counts (consumed by ai-analytics-service) |
 | GET    | `/chunks/:chunkId/replicas`         | List replicas recorded for a chunk    |
 
 ### Node heartbeat monitoring
@@ -208,6 +211,63 @@ back up and healed it — no special-casing required. Verified live end-to-end,
 including confirming the healed replica's bytes in the new node's MinIO
 bucket match the original checksum.
 
+### AI storage analytics dashboard
+
+`ai-analytics-service` is a small BFF (backend-for-frontend): it composes data
+from metadata-service (`/files/_stats`, `/files`) and replication-service
+(`/nodes`, `/diagnostics`) rather than reading their databases directly, and
+owns one table of its own — `file_access_stats` — populated by consuming a
+`file-access-events` queue that storage-service publishes to on every
+successful download (fire-and-forget, same pattern as `chunk-uploads`).
+
+**Hot/cold scoring is a deterministic heuristic, not a trained model** —
+worth being explicit about, since "AI" is easy to oversell. `scoreFileTemperature`
+(`src/scoring/temperature-scoring.ts`) combines two engineered features:
+
+- **Recency**: exponential half-life decay (`RECENCY_HALF_LIFE_DAYS`, default
+  14) — a file's recency contribution is exactly half at one half-life,
+  `100 × 0.5^(daysSinceAccess / halfLife)`.
+- **Frequency**: access count capped and normalized to 0-100 (`FREQUENCY_CAP`).
+
+Weighted 0.7 recency / 0.3 frequency into a 0-100 score, thresholded into
+`hot`/`cold` (`HOT_THRESHOLD`). Recency is weighted higher deliberately: a file
+hit hard months ago but untouched since is a better cold-storage candidate
+than one accessed a few times today — the same class of feature engineering
+behind real systems like S3 Intelligent-Tiering, not a claim of ML sophistication.
+A brand-new, never-accessed file gets a distinct "too new to classify
+confidently" recommendation rather than being called cold outright.
+
+The overview endpoint also turns replication-service's diagnostics into plain
+recommendations (node over 80% capacity, chunks under-replicated, nodes
+unhealthy) alongside the per-file hot/cold breakdown.
+
+Requires `Authorization: Bearer <access token>`.
+
+| Method | Route                  | Description                                          |
+| ------ | ---------------------- | ----------------------------------------------------- |
+| GET    | `/analytics/files`     | Caller's files with temperature score, tier, and a recommendation, coldest first |
+| GET    | `/analytics/overview`  | Storage totals, node health, hot/cold breakdown, system-level recommendations |
+
+Verified live: uploaded two files, downloaded one 5 times and left the other
+untouched, and confirmed the accessed file scored hot (77, "keep on hot
+storage") while the untouched one scored 0 ("too new to classify
+confidently"), with `/analytics/overview` reflecting exact real totals (files,
+bytes, per-node usage matching actual replica placement, correct hot/cold
+counts).
+
+### Frontend dashboard (apps/web)
+
+A working (not just scaffolded) Next.js frontend: register/login pages
+storing the JWT in `localStorage`, an auth guard that redirects `/dashboard`
+to `/login` when logged out, and a dashboard rendering live data from
+metadata/replication/ai-analytics-service — storage totals, per-node capacity
+bars with health badges, system recommendations, and a file table with
+hot/cold badges, scores, and per-file recommendations. File downloads go
+through an authenticated `fetch` + blob (a plain `<a href>` can't carry the
+Authorization header the storage-service requires). Verified live in-browser:
+registered an account, landed on the dashboard with real data, confirmed the
+logout → auth-guard-redirect round trip, and confirmed zero console errors.
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -224,7 +284,7 @@ bucket match the original checksum.
 5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(done)*
 6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(done)*
 7. **Distributed node heartbeat monitoring** — push heartbeats + a staleness sweep, unhealthy nodes automatically excluded from replication *(done)*
-8. **Automatic self-healing replication** — reconciliation loop restores under-replicated chunks, retries across sweeps until a healthy node is available *(this milestone)*
-9. AI storage analytics dashboard
+8. **Automatic self-healing replication** — reconciliation loop restores under-replicated chunks, retries across sweeps until a healthy node is available *(done)*
+9. **AI storage analytics dashboard** — deterministic hot/cold scoring heuristic, cross-service overview, and a real Next.js dashboard (not just the milestone-1 landing page) *(this milestone)*
 10. Kubernetes deployment
 11. Architecture and deployment documentation

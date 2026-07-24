@@ -106,4 +106,24 @@ export class ReplicationService {
   listNodes(): Promise<StorageNodeRecord[]> {
     return this.nodeRepository.listAll();
   }
+
+  async getDiagnostics(): Promise<{
+    totalNodes: number;
+    healthyNodes: number;
+    unhealthyNodes: number;
+    underReplicatedChunkCount: number;
+  }> {
+    const nodes = await this.nodeRepository.listAll();
+    const healthyNodes = nodes.filter((node) => node.isHealthy).length;
+    const underReplicated = await this.replicaRepository.listUnderReplicated(
+      this.options.replicationFactor,
+    );
+
+    return {
+      totalNodes: nodes.length,
+      healthyNodes,
+      unhealthyNodes: nodes.length - healthyNodes,
+      underReplicatedChunkCount: underReplicated.length,
+    };
+  }
 }

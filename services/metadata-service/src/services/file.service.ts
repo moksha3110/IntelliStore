@@ -4,6 +4,7 @@ import type {
   FileRecord,
   FileRepository,
   FileVersionRecord,
+  SystemStats,
 } from '../repositories/file.repository';
 import type { CreateFileInput, CreateVersionInput } from '../validation/file.schema';
 
@@ -96,5 +97,9 @@ export class FileService {
   async deleteFile(ownerId: string, fileId: string): Promise<void> {
     await this.getOwnedFile(ownerId, fileId);
     await this.fileRepository.softDeleteFile(fileId);
+  }
+
+  getSystemStats(): Promise<SystemStats> {
+    return this.fileRepository.getSystemStats();
   }
 }

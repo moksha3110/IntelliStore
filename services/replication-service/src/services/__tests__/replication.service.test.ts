@@ -134,4 +134,18 @@ describe('ReplicationService', () => {
     const stored = await replicaRepository.listByChunk('chunk-1');
     expect(stored).toHaveLength(2);
   });
+
+  it('reports diagnostics reflecting node health and under-replicated chunks', async () => {
+    await replicationService.replicateChunk('chunk-1', 'session/0', 1000);
+    await nodeRepository.setHealth('node-1', false, new Date().toISOString());
+    // Force chunk-2 under-replicated by giving it only 1 replica directly.
+    await replicaRepository.upsert('chunk-2', 'node-2', 'session/1', 500, 'synced');
+
+    const diagnostics = await replicationService.getDiagnostics();
+
+    expect(diagnostics.totalNodes).toBe(3);
+    expect(diagnostics.healthyNodes).toBe(2);
+    expect(diagnostics.unhealthyNodes).toBe(1);
+    expect(diagnostics.underReplicatedChunkCount).toBe(1);
+  });
 });

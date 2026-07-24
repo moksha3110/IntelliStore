@@ -83,3 +83,9 @@ export interface ChunkUploadedBatchEvent {
   versionId: string;
   chunks: ChunkUploadedEvent[];
 }
+
+export interface FileAccessedEvent {
+  fileId: string;
+  versionId: string;
+  accessedAt: string;
+}

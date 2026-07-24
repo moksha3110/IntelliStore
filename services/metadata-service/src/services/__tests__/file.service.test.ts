@@ -99,4 +99,22 @@ describe('FileService', () => {
     const { file } = await fileService.registerFile(OWNER_A, sampleInput());
     await expect(fileService.deleteFile(OWNER_B, file.id)).rejects.toThrow(AppError);
   });
+
+  it('computes system-wide stats across all owners, excluding soft-deleted files from totals', async () => {
+    await fileService.registerFile(OWNER_A, sampleInput());
+    const { file: fileB } = await fileService.registerFile(OWNER_B, sampleInput());
+    await fileService.addVersion(OWNER_B, fileB.id, {
+      mimeType: 'application/pdf',
+      checksum: 'checksum-v2',
+      chunks: [{ chunkIndex: 0, sizeBytes: 2000, checksum: 'chunk-0-v2', storageKey: 'files/b/v2/0' }],
+    });
+    const { file: deletedFile } = await fileService.registerFile(OWNER_A, sampleInput());
+    await fileService.deleteFile(OWNER_A, deletedFile.id);
+
+    const stats = await fileService.getSystemStats();
+
+    expect(stats.totalFiles).toBe(2); // deleted file excluded
+    expect(stats.totalVersions).toBe(4); // 2 files x v1, 1 extra v2, 1 deleted file's v1
+    expect(stats.totalBytes).toBe(1536 + 2000); // fileA's v1 (1024+512) + fileB's latest v2 (2000)
+  });
 });

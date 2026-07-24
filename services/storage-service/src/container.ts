@@ -27,14 +27,16 @@ export const logger = createLogger({ serviceName: config.serviceName });
 
 export const storageBackend = createStorageBackend();
 export const metadataClient = new HttpMetadataClient(config.metadataServiceUrl);
-export const downloadService = new DownloadService(storageBackend, metadataClient);
 
-// Depends on a RabbitMQ connection, which is established asynchronously in
-// index.ts before the server starts accepting requests; see initUploadService.
+// Both depend on an EventPublisher, which depends on a RabbitMQ connection
+// established asynchronously in index.ts before the server starts accepting
+// requests; see initServices.
 export let uploadService: UploadService;
+export let downloadService: DownloadService;
 
-export function initUploadService(eventPublisher: EventPublisher): void {
+export function initServices(eventPublisher: EventPublisher): void {
   uploadService = new UploadService(storageBackend, metadataClient, eventPublisher, {
     chunkSizeBytes: config.chunkSizeBytes,
   });
+  downloadService = new DownloadService(storageBackend, metadataClient, eventPublisher);
 }
