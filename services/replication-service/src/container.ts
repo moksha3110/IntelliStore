@@ -5,6 +5,7 @@ import { PgNodeRepository } from './repositories/node.repository';
 import { PgReplicaRepository } from './repositories/replica.repository';
 import { HeartbeatMonitor } from './services/heartbeat-monitor';
 import { ReplicationService } from './services/replication.service';
+import { SelfHealingService } from './services/self-healing.service';
 import { MinioNodeStorage } from './storage/minio-node-storage';
 
 export const logger = createLogger({ serviceName: config.serviceName });
@@ -31,5 +32,13 @@ export const replicationService = new ReplicationService(
 export const heartbeatMonitor = new HeartbeatMonitor(
   nodeRepository,
   config.heartbeatStaleMs,
+  logger,
+);
+
+export const selfHealingService = new SelfHealingService(
+  nodeRepository,
+  replicaRepository,
+  replicationService,
+  { replicationFactor: config.replicationFactor },
   logger,
 );

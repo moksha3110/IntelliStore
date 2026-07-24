@@ -2,7 +2,14 @@ import { connectWithRetry, consumeJson } from '@intellistore/shared-queue';
 import type { ChunkUploadedBatchEvent } from '@intellistore/shared-types';
 import { config } from './config';
 import { createApp } from './app';
-import { heartbeatMonitor, logger, nodeRepository, nodeStorage, replicationService } from './container';
+import {
+  heartbeatMonitor,
+  logger,
+  nodeRepository,
+  nodeStorage,
+  replicationService,
+  selfHealingService,
+} from './container';
 
 async function main(): Promise<void> {
   logger.info('ensuring simulated storage node buckets exist');
@@ -35,6 +42,9 @@ async function main(): Promise<void> {
   logger.info(
     `heartbeat staleness sweep running every ${config.heartbeatSweepIntervalMs}ms (stale after ${config.heartbeatStaleMs}ms)`,
   );
+
+  selfHealingService.start(config.selfHealingIntervalMs);
+  logger.info(`self-healing sweep running every ${config.selfHealingIntervalMs}ms`);
 
   const app = createApp(logger);
   app.listen(config.port, () => {

@@ -28,12 +28,55 @@ export class ReplicationService {
     }
 
     const targets = healthyNodes.slice(0, this.options.replicationFactor);
+    return this.copyToTargets(chunkId, storageKey, sizeBytes, targets);
+  }
+
+  /**
+   * Restores replication for a chunk that has fallen below the desired
+   * replica count (e.g. because a node hosting a replica went unhealthy).
+   * Picks up to `neededCount` healthy nodes, skipping any in `excludeNodeIds`
+   * (nodes that already have a replica row for this chunk, healthy or not).
+   */
+  async healChunk(
+    chunkId: string,
+    storageKey: string,
+    sizeBytes: number,
+    neededCount: number,
+    excludeNodeIds: string[],
+  ): Promise<ChunkReplicaRecord[]> {
+    if (neededCount <= 0) return [];
+
+    const healthyNodes = await this.nodeRepository.listHealthy();
+    const targets = healthyNodes
+      .filter((node) => !excludeNodeIds.includes(node.id))
+      .slice(0, neededCount);
+
+    if (targets.length === 0) {
+      this.logger?.warn({ chunkId }, 'no eligible healthy nodes available to heal chunk');
+      return [];
+    }
+
+    return this.copyToTargets(chunkId, storageKey, sizeBytes, targets);
+  }
+
+  private async copyToTargets(
+    chunkId: string,
+    storageKey: string,
+    sizeBytes: number,
+    targets: StorageNodeRecord[],
+  ): Promise<ChunkReplicaRecord[]> {
     const results: ChunkReplicaRecord[] = [];
 
     for (const node of targets) {
       try {
         await this.replicateToNode(storageKey, sizeBytes, node);
-        const replica = await this.replicaRepository.upsert(chunkId, node.id, storageKey, 'synced');
+        const replica = await this.replicaRepository.upsert(
+          chunkId,
+          node.id,
+          storageKey,
+          sizeBytes,
+          'synced',
+        );
         results.push(replica);
       } catch (err) {
         this.logger?.error({ err, nodeId: node.id, chunkId }, 'failed to replicate chunk to node');

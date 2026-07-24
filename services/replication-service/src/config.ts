@@ -3,6 +3,7 @@ import { getBaseEnv, loadServicePort } from '@intellistore/shared-config';
 const DEFAULT_REPLICATION_FACTOR = 2;
 const DEFAULT_HEARTBEAT_STALE_MS = 15_000;
 const DEFAULT_HEARTBEAT_SWEEP_INTERVAL_MS = 5_000;
+const DEFAULT_SELF_HEALING_INTERVAL_MS = 10_000;
 
 export const config = {
   ...getBaseEnv(),
@@ -14,5 +15,8 @@ export const config = {
   heartbeatStaleMs: Number(process.env.HEARTBEAT_STALE_MS ?? DEFAULT_HEARTBEAT_STALE_MS),
   heartbeatSweepIntervalMs: Number(
     process.env.HEARTBEAT_SWEEP_INTERVAL_MS ?? DEFAULT_HEARTBEAT_SWEEP_INTERVAL_MS,
+  ),
+  selfHealingIntervalMs: Number(
+    process.env.SELF_HEALING_INTERVAL_MS ?? DEFAULT_SELF_HEALING_INTERVAL_MS,
   ),
 };

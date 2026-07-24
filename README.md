@@ -5,7 +5,7 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 7 — distributed node heartbeat monitoring.** Remaining
+> Status: **Milestone 8 — automatic self-healing replication.** Remaining
 > services are still health-check-only skeletons; business logic lands in
 > subsequent milestones.
 
@@ -183,6 +183,31 @@ placement — verified live by running agents for only 2 of the 3 nodes,
 watching the third go unhealthy after the staleness window, and confirming a
 subsequent upload's replicas landed only on the two healthy nodes.
 
+### Self-healing replication
+
+`SelfHealingService` runs a reconciliation loop every `SELF_HEALING_INTERVAL_MS`
+— the same control-loop pattern Kubernetes controllers use (continuously
+compare actual vs. desired state, converge, repeat), rather than reacting only
+once to a node's health transition:
+
+1. **Mark-lost pass**: any replica sitting on a currently-unhealthy node (and
+   not already marked `lost`) is marked `lost` — it can no longer be trusted.
+2. **Reconcile pass**: `listUnderReplicated(REPLICATION_FACTOR)` finds *every*
+   chunk whose synced-replica count has fallen short, regardless of when or
+   why, and calls `ReplicationService.healChunk` to place new replicas on
+   healthy nodes that don't already have one.
+
+Splitting it this way (re-check real counts every sweep, not just newly-changed
+ones) is what makes healing retry a chunk it couldn't repair immediately —
+found live during testing: with 2 of 3 nodes down, a chunk's only healthy
+target already held a replica, so the first sweep had nowhere to place a new
+copy and left it under-replicated. Because the reconciliation pass re-scans
+`listUnderReplicated` on every tick rather than only when a node's health
+just changed, the very next sweep after a node came back online picked it
+back up and healed it — no special-casing required. Verified live end-to-end,
+including confirming the healed replica's bytes in the new node's MinIO
+bucket match the original checksum.
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -198,8 +223,8 @@ subsequent upload's replicas landed only on the two healthy nodes.
 4. **Chunk upload pipeline** — storage-service splits/hashes/stores chunks, calls metadata-service, reassembles on download *(done)*
 5. **MinIO object storage integration** — real S3-compatible backend behind the `StorageBackend` interface, auto-created bucket *(done)*
 6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(done)*
-7. **Distributed node heartbeat monitoring** — push heartbeats + a staleness sweep, unhealthy nodes automatically excluded from replication *(this milestone)*
-8. Automatic self-healing replication
+7. **Distributed node heartbeat monitoring** — push heartbeats + a staleness sweep, unhealthy nodes automatically excluded from replication *(done)*
+8. **Automatic self-healing replication** — reconciliation loop restores under-replicated chunks, retries across sweeps until a healthy node is available *(this milestone)*
 9. AI storage analytics dashboard
 10. Kubernetes deployment
 11. Architecture and deployment documentation
