@@ -28,9 +28,13 @@ data:
   JWT_EXPIRES_IN: 1h
   JWT_REFRESH_EXPIRES_IN: 7d
 
-  # Inter-service URLs (in-cluster).
+  # Inter-service URLs (in-cluster). Used by services calling peers directly and
+  # by the API gateway to route to each upstream.
+  AUTH_SERVICE_URL: http://auth-service:4001
   METADATA_SERVICE_URL: http://metadata-service:4002
+  STORAGE_SERVICE_URL: http://storage-service:4003
   REPLICATION_SERVICE_URL: http://replication-service:4004
+  AI_ANALYTICS_SERVICE_URL: http://ai-analytics-service:4005
 
   # Queues.
   CHUNK_UPLOADS_QUEUE: chunk-uploads

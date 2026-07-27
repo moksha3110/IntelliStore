@@ -1,7 +1,4 @@
-export const serviceUrls = {
-  auth: process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ?? 'http://localhost:4001',
-  metadata: process.env.NEXT_PUBLIC_METADATA_SERVICE_URL ?? 'http://localhost:4002',
-  storage: process.env.NEXT_PUBLIC_STORAGE_SERVICE_URL ?? 'http://localhost:4003',
-  replication: process.env.NEXT_PUBLIC_REPLICATION_SERVICE_URL ?? 'http://localhost:4004',
-  aiAnalytics: process.env.NEXT_PUBLIC_AI_ANALYTICS_SERVICE_URL ?? 'http://localhost:4005',
-};
+// The frontend talks to exactly one origin — the API gateway — which routes to
+// the individual services. This is the payoff of the gateway: one public URL,
+// one CORS surface, one place for rate limiting.
+export const gatewayUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';

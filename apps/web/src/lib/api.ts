@@ -1,5 +1,5 @@
 import type { ApiResponse } from '@intellistore/shared-types';
-import { serviceUrls } from './config';
+import { gatewayUrl } from './config';
 import { getStoredSession, type StoredUser } from './auth-storage';
 
 export class ApiError extends Error {
@@ -26,13 +26,15 @@ function authHeader(): Record<string, string> {
   return session ? { Authorization: `Bearer ${session.accessToken}` } : {};
 }
 
-async function getJson<T>(baseUrl: string, path: string): Promise<T> {
-  const res = await fetch(`${baseUrl}${path}`, { headers: { ...authHeader() } });
+// Every request goes through the single gateway origin; paths carry the
+// gateway's routing prefix (/api/auth, /api/files, /api/storage, ...).
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(`${gatewayUrl}${path}`, { headers: { ...authHeader() } });
   return unwrap<T>(res);
 }
 
-async function postJson<T>(baseUrl: string, path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${baseUrl}${path}`, {
+async function postJson<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${gatewayUrl}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify(body),
@@ -50,11 +52,11 @@ export function registerAccount(input: {
   password: string;
   displayName: string;
 }): Promise<AuthResult> {
-  return postJson(serviceUrls.auth, '/auth/register', input);
+  return postJson('/api/auth/register', input);
 }
 
 export function login(input: { email: string; password: string }): Promise<AuthResult> {
-  return postJson(serviceUrls.auth, '/auth/login', input);
+  return postJson('/api/auth/login', input);
 }
 
 export interface FileRecordDto {
@@ -82,13 +84,13 @@ export interface FileWithLatestVersionDto {
 }
 
 export function listFiles(): Promise<FileWithLatestVersionDto[]> {
-  return getJson(serviceUrls.metadata, '/files');
+  return getJson('/api/files');
 }
 
 export async function uploadFile(file: File): Promise<unknown> {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await fetch(`${serviceUrls.storage}/files`, {
+  const res = await fetch(`${gatewayUrl}/api/storage`, {
     method: 'POST',
     headers: { ...authHeader() },
     body: formData,
@@ -97,7 +99,7 @@ export async function uploadFile(file: File): Promise<unknown> {
 }
 
 export async function downloadFile(fileId: string, fileName: string): Promise<void> {
-  const res = await fetch(`${serviceUrls.storage}/files/${fileId}/download`, {
+  const res = await fetch(`${gatewayUrl}/api/storage/${fileId}/download`, {
     headers: { ...authHeader() },
   });
   if (!res.ok) {
@@ -129,7 +131,7 @@ export interface StorageNodeDto {
 }
 
 export function listNodes(): Promise<StorageNodeDto[]> {
-  return getJson(serviceUrls.replication, '/nodes');
+  return getJson('/api/replication/nodes');
 }
 
 export type StorageTier = 'hot' | 'cold';
@@ -172,9 +174,9 @@ export interface OverviewDto {
 }
 
 export function getAnalyticsOverview(): Promise<OverviewDto> {
-  return getJson(serviceUrls.aiAnalytics, '/analytics/overview');
+  return getJson('/api/analytics/overview');
 }
 
 export function getFileRecommendations(): Promise<FileRecommendationDto[]> {
-  return getJson(serviceUrls.aiAnalytics, '/analytics/files');
+  return getJson('/api/analytics/files');
 }
