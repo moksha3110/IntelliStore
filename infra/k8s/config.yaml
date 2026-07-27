@@ -1,0 +1,65 @@
+# Non-secret configuration shared across services. Service discovery uses
+# in-cluster DNS names (<service>.intellistore.svc.cluster.local, shortened to
+# the Service name since everything lives in the same namespace).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intellistore-config
+  namespace: intellistore
+data:
+  NODE_ENV: production
+  LOG_LEVEL: info
+
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: intellistore
+
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: "5672"
+
+  MINIO_ENDPOINT: minio
+  MINIO_PORT: "9000"
+  MINIO_BUCKET: intellistore-chunks
+  MINIO_USE_SSL: "false"
+
+  JWT_EXPIRES_IN: 1h
+  JWT_REFRESH_EXPIRES_IN: 7d
+
+  # Inter-service URLs (in-cluster).
+  METADATA_SERVICE_URL: http://metadata-service:4002
+  REPLICATION_SERVICE_URL: http://replication-service:4004
+
+  # Queues.
+  CHUNK_UPLOADS_QUEUE: chunk-uploads
+  FILE_ACCESS_QUEUE: file-access-events
+
+  # Storage / replication tuning.
+  STORAGE_BACKEND: minio
+  CHUNK_SIZE_BYTES: "4194304"
+  MAX_UPLOAD_SIZE_BYTES: "104857600"
+  REPLICATION_FACTOR: "2"
+  HEARTBEAT_STALE_MS: "15000"
+  HEARTBEAT_SWEEP_INTERVAL_MS: "5000"
+  SELF_HEALING_INTERVAL_MS: "10000"
+---
+# Secrets. Values here are the same dev defaults as docker-compose / .env.example
+# — fine for a local minikube demo, and a real deployment would source these
+# from a sealed secret / external secrets manager rather than committing them.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: intellistore-secrets
+  namespace: intellistore
+type: Opaque
+stringData:
+  POSTGRES_USER: intellistore
+  POSTGRES_PASSWORD: intellistore_dev_password
+  RABBITMQ_USER: intellistore
+  RABBITMQ_PASSWORD: intellistore_dev_password
+  MINIO_ROOT_USER: intellistore
+  MINIO_ROOT_PASSWORD: intellistore_dev_password
+  JWT_SECRET: change-me-in-production
+  JWT_REFRESH_SECRET: change-me-refresh-in-production

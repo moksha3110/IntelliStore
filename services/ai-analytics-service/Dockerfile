@@ -19,6 +19,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/services/ai-analytics-service/dist ./services/ai-analytics-service/dist
+COPY --from=build /app/services/ai-analytics-service/migrations ./services/ai-analytics-service/migrations
 COPY --from=build /app/services/ai-analytics-service/package.json ./services/ai-analytics-service/package.json
 EXPOSE 4005
 CMD ["node", "services/ai-analytics-service/dist/index.js"]

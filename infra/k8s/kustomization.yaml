@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Applied together via `kubectl apply -k infra/k8s`. Kustomize orders by kind,
+# so the Namespace, ConfigMap, and Secret land before the workloads that
+# reference them. Services connect to Postgres/RabbitMQ lazily and with retry,
+# and the migration Jobs use backoffLimit, so startup ordering races resolve
+# themselves without an explicit dependency graph.
+resources:
+  - namespace.yaml
+  - config.yaml
+
+  - infra/postgres.yaml
+  - infra/redis.yaml
+  - infra/rabbitmq.yaml
+  - infra/minio.yaml
+
+  - services/api-gateway.yaml
+  - services/auth-service.yaml
+  - services/metadata-service.yaml
+  - services/storage-service.yaml
+  - services/replication-service.yaml
+  - services/ai-analytics-service.yaml
+  - services/notification-service.yaml
+  - services/node-agents.yaml
+  - services/web.yaml
+
+  - jobs/migrate-auth-service.yaml
+  - jobs/migrate-metadata-service.yaml
+  - jobs/migrate-replication-service.yaml
+  - jobs/migrate-ai-analytics-service.yaml

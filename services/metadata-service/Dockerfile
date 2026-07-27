@@ -19,6 +19,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/services/metadata-service/dist ./services/metadata-service/dist
+COPY --from=build /app/services/metadata-service/migrations ./services/metadata-service/migrations
 COPY --from=build /app/services/metadata-service/package.json ./services/metadata-service/package.json
 EXPOSE 4002
 CMD ["node", "services/metadata-service/dist/index.js"]

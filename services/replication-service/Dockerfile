@@ -19,6 +19,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/services/replication-service/dist ./services/replication-service/dist
+COPY --from=build /app/services/replication-service/migrations ./services/replication-service/migrations
 COPY --from=build /app/services/replication-service/package.json ./services/replication-service/package.json
 EXPOSE 4004
 CMD ["node", "services/replication-service/dist/index.js"]

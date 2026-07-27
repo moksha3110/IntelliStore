@@ -1,0 +1,42 @@
+# Simulated storage-node heartbeat agents. In a real cluster each storage node
+# would run its own agent process; here a single Deployment posts heartbeats
+# for all three simulated nodes on an interval, keeping them healthy so the
+# replication and self-healing machinery has live nodes to work with. Reuses an
+# already-loaded image (for its busybox wget) rather than pulling anything, and
+# targets the intentionally-unauthenticated heartbeat endpoint (see M7 notes).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-agents
+  namespace: intellistore
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-agents
+  template:
+    metadata:
+      labels:
+        app: node-agents
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: node-agents
+          image: intellistore/replication-service:local
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "node-agents: posting heartbeats every 3s to replication-service";
+              while true; do
+                for n in node-1 node-2 node-3; do
+                  wget -q -O- --post-data='' "http://replication-service:4004/nodes/$n/heartbeat" >/dev/null 2>&1 || true;
+                done;
+                sleep 3;
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi

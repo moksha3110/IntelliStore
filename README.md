@@ -5,9 +5,10 @@ enhanced with AI-driven storage optimization (hot/cold prediction, tiering
 recommendations). Built as a microservices system to demonstrate distributed
 systems, cloud-native architecture, and production engineering practices.
 
-> Status: **Milestone 9 — AI storage analytics dashboard.** The API gateway
-> and notification service are still health-check-only skeletons; that's the
-> only remaining backend scaffolding before Kubernetes and docs.
+> Status: **Milestone 10 — Kubernetes deployment.** The whole platform (8
+> services + web + Postgres/Redis/RabbitMQ/MinIO) runs on Kubernetes, verified
+> end-to-end on minikube. The API gateway and notification service remain
+> health-check-only skeletons.
 
 ## Architecture
 
@@ -268,6 +269,61 @@ Authorization header the storage-service requires). Verified live in-browser:
 registered an account, landed on the dashboard with real data, confirmed the
 logout → auth-guard-redirect round trip, and confirmed zero console errors.
 
+## Kubernetes deployment
+
+Every service (8 backends + the web frontend) has a multi-stage Dockerfile, and
+`infra/k8s/` holds the full manifest set (rendered/applied with Kustomize):
+
+- **Infra**: Postgres as a `StatefulSet` with a `volumeClaimTemplate`; Redis,
+  RabbitMQ, and MinIO as `Deployment`s (MinIO with its own PVC). Each has
+  readiness/liveness probes.
+- **Config**: one `ConfigMap` (non-secret settings, in-cluster service DNS
+  names) and one `Secret` (credentials/JWT secrets — dev defaults here, sourced
+  from a real secrets manager in production) that every service consumes via
+  `envFrom`.
+- **Services**: a `Deployment` + `ClusterIP` `Service` each, with `/health`
+  probes (the web app probes `/`), resource requests/limits, and
+  `imagePullPolicy: IfNotPresent` (images are loaded straight into the node).
+- **Migrations**: one `Job` per service that owns a schema, running the compiled
+  migration runner with `backoffLimit` (so a job that starts before Postgres is
+  ready simply retries) and `ttlSecondsAfterFinished` for auto-cleanup.
+- **node-agents**: a small `Deployment` that posts heartbeats for the three
+  simulated storage nodes, so replication/self-healing has live nodes to work
+  with in-cluster.
+
+```bash
+# Build all images (this project uses the legacy builder; BuildKit had a
+# path-handling issue under Git Bash on Windows).
+DOCKER_BUILDKIT=0 docker build -f services/auth-service/Dockerfile -t intellistore/auth-service:local .
+# ...repeat per service, and apps/web/Dockerfile -> intellistore/web:local
+
+# Load images into the cluster (minikube) and deploy.
+minikube image load intellistore/auth-service:local   # ...per image
+kubectl apply -k infra/k8s
+kubectl -n intellistore get pods
+```
+
+**Gotcha worth calling out** (caught during deployment): for a `Service` named
+`auth-service`, Kubernetes injects a legacy Docker-link env var
+`AUTH_SERVICE_PORT=tcp://<clusterIP>:4001`, which collided with this project's
+own `AUTH_SERVICE_PORT` (the numeric listen port) and crash-looped every
+service. Fix: `enableServiceLinks: false` on the pod specs — discovery is done
+via DNS, so those link vars were dead weight anyway.
+
+Verified end-to-end on minikube: all 16 pods `Running` and all 4 migration Jobs
+`Complete`, then a full pipeline run through the cluster — register (→ k8s
+Postgres), an ai-analytics overview fanning out to metadata + replication over
+in-cluster DNS, and an upload that chunked to MinIO, registered metadata,
+published to RabbitMQ, got replicated to two node buckets by
+replication-service, and downloaded back byte-for-byte identical.
+
+> **Note on the frontend in k8s**: `NEXT_PUBLIC_*` URLs are inlined into the
+> browser bundle at build time and must be *browser*-reachable, not in-cluster
+> DNS. The image bakes in `localhost:<port>` defaults, so browser access works
+> when services are `kubectl port-forward`ed to their standard ports; a real
+> deployment would put everything behind one ingress/gateway origin and rebuild
+> with that URL.
+
 ## Engineering standards
 
 - Clean Architecture / Repository Pattern per service
@@ -285,6 +341,6 @@ logout → auth-guard-redirect round trip, and confirmed zero console errors.
 6. **Replica manager** — RabbitMQ-driven replication to simulated storage nodes, least-used node selection, per-node failure isolation *(done)*
 7. **Distributed node heartbeat monitoring** — push heartbeats + a staleness sweep, unhealthy nodes automatically excluded from replication *(done)*
 8. **Automatic self-healing replication** — reconciliation loop restores under-replicated chunks, retries across sweeps until a healthy node is available *(done)*
-9. **AI storage analytics dashboard** — deterministic hot/cold scoring heuristic, cross-service overview, and a real Next.js dashboard (not just the milestone-1 landing page) *(this milestone)*
-10. Kubernetes deployment
+9. **AI storage analytics dashboard** — deterministic hot/cold scoring heuristic, cross-service overview, and a real Next.js dashboard (not just the milestone-1 landing page) *(done)*
+10. **Kubernetes deployment** — Dockerfiles for all services + web, k8s manifests (Deployments/Services/StatefulSet/ConfigMap/Secret/Jobs), deployed and verified end-to-end on minikube *(this milestone)*
 11. Architecture and deployment documentation

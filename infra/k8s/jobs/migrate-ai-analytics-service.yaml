@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-ai-analytics-service
+  namespace: intellistore
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: migrate-ai-analytics-service
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      containers:
+        - name: migrate
+          image: intellistore/ai-analytics-service:local
+          imagePullPolicy: IfNotPresent
+          command: ["node", "services/ai-analytics-service/dist/db/migrate.js"]
+          envFrom:
+            - configMapRef:
+                name: intellistore-config
+            - secretRef:
+                name: intellistore-secrets

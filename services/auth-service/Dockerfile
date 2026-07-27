@@ -19,6 +19,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/services/auth-service/dist ./services/auth-service/dist
+COPY --from=build /app/services/auth-service/migrations ./services/auth-service/migrations
 COPY --from=build /app/services/auth-service/package.json ./services/auth-service/package.json
 EXPOSE 4001
 CMD ["node", "services/auth-service/dist/index.js"]
