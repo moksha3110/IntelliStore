@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { sha256, splitIntoChunks } from '../chunking/chunking.service';
 import type {
   AddVersionPayload,
@@ -15,6 +14,15 @@ export interface UploadServiceOptions {
   chunkSizeBytes: number;
 }
 
+export interface DedupInfo {
+  totalChunks: number;
+  storedChunks: number;
+  dedupedChunks: number;
+  bytesSaved: number;
+}
+
+export type UploadResult = RegisterFileResult & { dedup: DedupInfo };
+
 export class UploadService {
   constructor(
     private readonly storageBackend: StorageBackend,
@@ -28,10 +36,10 @@ export class UploadService {
     fileName: string,
     mimeType: string,
     buffer: Buffer,
-  ): Promise<RegisterFileResult> {
-    const { chunkKeys, payload } = await this.storeChunks(buffer, mimeType);
+  ): Promise<UploadResult> {
+    const { newlyWrittenKeys, payload, dedup } = await this.storeChunks(buffer, mimeType);
 
-    const result = await this.registerWithCleanup(chunkKeys, () =>
+    const result = await this.registerWithCleanup(newlyWrittenKeys, () =>
       this.metadataClient.registerFile(bearerToken, { fileName, ...payload }),
     );
     await this.publishChunkUploaded({
@@ -42,7 +50,7 @@ export class UploadService {
       versionNumber: result.version.versionNumber,
       chunks: result.chunks,
     });
-    return result;
+    return { ...result, dedup };
   }
 
   async uploadNewVersion(
@@ -50,10 +58,10 @@ export class UploadService {
     fileId: string,
     mimeType: string,
     buffer: Buffer,
-  ): Promise<{ version: FileVersionDto; chunks: ChunkDto[] }> {
-    const { chunkKeys, payload } = await this.storeChunks(buffer, mimeType);
+  ): Promise<{ version: FileVersionDto; chunks: ChunkDto[]; dedup: DedupInfo }> {
+    const { newlyWrittenKeys, payload, dedup } = await this.storeChunks(buffer, mimeType);
 
-    const result = await this.registerWithCleanup(chunkKeys, () =>
+    const result = await this.registerWithCleanup(newlyWrittenKeys, () =>
       this.metadataClient.addVersion(bearerToken, fileId, payload),
     );
     // The addVersion response carries the version but not the owning file, so
@@ -67,7 +75,7 @@ export class UploadService {
       versionNumber: result.version.versionNumber,
       chunks: result.chunks,
     });
-    return result;
+    return { ...result, dedup };
   }
 
   private async publishChunkUploaded(input: {
@@ -95,32 +103,47 @@ export class UploadService {
   private async storeChunks(
     buffer: Buffer,
     mimeType: string,
-  ): Promise<{ chunkKeys: string[]; payload: AddVersionPayload }> {
+  ): Promise<{ newlyWrittenKeys: string[]; payload: AddVersionPayload; dedup: DedupInfo }> {
     if (buffer.length === 0) {
       throw AppError.badRequest('Cannot upload an empty file');
     }
 
     const pieces = splitIntoChunks(buffer, this.options.chunkSizeBytes);
-    const sessionId = randomUUID();
-    const chunkKeys: string[] = [];
+    // Content-addressed storage: the key IS the chunk's SHA-256. Identical chunk
+    // content therefore maps to the same object and is stored exactly once
+    // (deduplication), no matter which file or user uploaded it.
+    const newlyWrittenKeys: string[] = [];
+    let dedupedChunks = 0;
+    let bytesSaved = 0;
 
     for (const piece of pieces) {
-      const key = `${sessionId}/${piece.index}`;
-      await this.storageBackend.put(key, piece.data);
-      chunkKeys.push(key);
+      const key = `chunks/${piece.checksum}`;
+      if (await this.storageBackend.exists(key)) {
+        dedupedChunks += 1;
+        bytesSaved += piece.sizeBytes;
+      } else {
+        await this.storageBackend.put(key, piece.data);
+        newlyWrittenKeys.push(key);
+      }
     }
 
     return {
-      chunkKeys,
+      newlyWrittenKeys,
       payload: {
         mimeType,
         checksum: sha256(buffer),
-        chunks: pieces.map((piece, i) => ({
+        chunks: pieces.map((piece) => ({
           chunkIndex: piece.index,
           sizeBytes: piece.sizeBytes,
           checksum: piece.checksum,
-          storageKey: chunkKeys[i],
+          storageKey: `chunks/${piece.checksum}`,
         })),
+      },
+      dedup: {
+        totalChunks: pieces.length,
+        storedChunks: newlyWrittenKeys.length,
+        dedupedChunks,
+        bytesSaved,
       },
     };
   }

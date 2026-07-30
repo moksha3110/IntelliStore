@@ -125,11 +125,20 @@ export class InMemoryFileRepository implements FileRepository {
       if (latest) totalBytes += latest.sizeBytes;
     }
 
+    const allChunks = [...this.chunks.values()].flat();
+    const logicalChunkBytes = allChunks.reduce((sum, c) => sum + c.sizeBytes, 0);
+    const distinctByKey = new Map<string, number>();
+    for (const c of allChunks) distinctByKey.set(c.storageKey, c.sizeBytes);
+    const physicalChunkBytes = [...distinctByKey.values()].reduce((sum, s) => sum + s, 0);
+
     return {
       totalFiles: activeFiles.length,
       totalVersions,
-      totalChunks: [...this.chunks.values()].reduce((sum, list) => sum + list.length, 0),
+      totalChunks: allChunks.length,
       totalBytes,
+      logicalChunkBytes,
+      physicalChunkBytes,
+      dedupedBytes: logicalChunkBytes - physicalChunkBytes,
     };
   }
 }

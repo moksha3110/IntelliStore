@@ -6,7 +6,15 @@ import type {
 
 export class FakeMetadataClient implements MetadataClient {
   files: FileWithLatestVersionDto[] = [];
-  systemStats: SystemStatsDto = { totalFiles: 0, totalVersions: 0, totalChunks: 0, totalBytes: 0 };
+  systemStats: SystemStatsDto = {
+    totalFiles: 0,
+    totalVersions: 0,
+    totalChunks: 0,
+    totalBytes: 0,
+    logicalChunkBytes: 0,
+    physicalChunkBytes: 0,
+    dedupedBytes: 0,
+  };
 
   async listFiles(_bearerToken: string): Promise<FileWithLatestVersionDto[]> {
     return this.files;

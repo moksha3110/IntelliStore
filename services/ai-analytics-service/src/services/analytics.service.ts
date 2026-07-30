@@ -5,6 +5,14 @@ import { scoreFileTemperature, type ScoringOptions, type TemperatureResult } fro
 
 const HIGH_UTILIZATION_THRESHOLD = 0.8;
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, exp);
+  return `${exp === 0 ? value : value.toFixed(1)} ${units[exp]}`;
+}
+
 export interface FileRecommendation {
   fileId: string;
   fileName: string;
@@ -70,6 +78,11 @@ export class AnalyticsService {
     const recommendations = [
       ...this.nodeCapacityRecommendations(nodes),
       ...this.diagnosticsRecommendations(diagnostics),
+      ...(storage.dedupedBytes > 0
+        ? [
+            `Deduplication is saving ${formatBytes(storage.dedupedBytes)} by storing identical chunks once.`,
+          ]
+        : []),
       ...(cold > 0
         ? [`${cold} of your file(s) are classified cold — consider archiving to reduce hot-storage costs.`]
         : []),

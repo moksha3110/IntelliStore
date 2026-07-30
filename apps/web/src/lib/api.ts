@@ -156,6 +156,9 @@ export interface SystemStatsDto {
   totalVersions: number;
   totalChunks: number;
   totalBytes: number;
+  logicalChunkBytes: number;
+  physicalChunkBytes: number;
+  dedupedBytes: number;
 }
 
 export interface DiagnosticsDto {

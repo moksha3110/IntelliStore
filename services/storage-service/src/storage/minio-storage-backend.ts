@@ -66,4 +66,14 @@ export class MinioStorageBackend implements StorageBackend {
   async delete(key: string): Promise<void> {
     await this.client.removeObject(this.bucket, key);
   }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await this.client.statObject(this.bucket, key);
+      return true;
+    } catch {
+      // statObject throws (NoSuchKey / NotFound) when the object is absent.
+      return false;
+    }
+  }
 }

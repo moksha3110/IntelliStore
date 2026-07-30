@@ -102,6 +102,12 @@ export interface SystemStats {
   totalVersions: number;
   totalChunks: number;
   totalBytes: number;
+  // Deduplication: logical chunk bytes = sum over every chunk row; physical =
+  // sum over *distinct* content-addressed storage keys (each stored once);
+  // saved = the difference eliminated by dedup.
+  logicalChunkBytes: number;
+  physicalChunkBytes: number;
+  dedupedBytes: number;
 }
 
 export interface FileRepository {
@@ -161,6 +167,8 @@ export class PgFileRepository implements FileRepository {
       total_versions: string;
       total_chunks: string;
       total_bytes: string;
+      logical_chunk_bytes: string;
+      physical_chunk_bytes: string;
     }>(`
       SELECT
         (SELECT count(*) FROM files WHERE is_deleted = false) AS total_files,
@@ -171,14 +179,23 @@ export class PgFileRepository implements FileRepository {
            FROM file_versions fv
            JOIN files f ON f.id = fv.file_id AND f.is_deleted = false
            ORDER BY fv.file_id, fv.version_number DESC
-         ) latest) AS total_bytes
+         ) latest) AS total_bytes,
+        (SELECT COALESCE(SUM(size_bytes), 0) FROM chunks) AS logical_chunk_bytes,
+        (SELECT COALESCE(SUM(size_bytes), 0) FROM (
+           SELECT DISTINCT storage_key, size_bytes FROM chunks
+         ) distinct_chunks) AS physical_chunk_bytes
     `);
     const row = result.rows[0];
+    const logicalChunkBytes = Number(row.logical_chunk_bytes);
+    const physicalChunkBytes = Number(row.physical_chunk_bytes);
     return {
       totalFiles: Number(row.total_files),
       totalVersions: Number(row.total_versions),
       totalChunks: Number(row.total_chunks),
       totalBytes: Number(row.total_bytes),
+      logicalChunkBytes,
+      physicalChunkBytes,
+      dedupedBytes: logicalChunkBytes - physicalChunkBytes,
     };
   }
 

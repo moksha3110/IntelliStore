@@ -18,4 +18,8 @@ export class InMemoryStorageBackend implements StorageBackend {
   async delete(key: string): Promise<void> {
     this.store.delete(key);
   }
+
+  async exists(key: string): Promise<boolean> {
+    return this.store.has(key);
+  }
 }

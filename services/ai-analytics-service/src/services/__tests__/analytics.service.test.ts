@@ -109,7 +109,15 @@ describe('AnalyticsService', () => {
 
   describe('getOverview', () => {
     it('aggregates storage stats, nodes, diagnostics, and hot/cold breakdown', async () => {
-      metadataClient.systemStats = { totalFiles: 2, totalVersions: 2, totalChunks: 4, totalBytes: 2000 };
+      metadataClient.systemStats = {
+        totalFiles: 2,
+        totalVersions: 2,
+        totalChunks: 4,
+        totalBytes: 2000,
+        logicalChunkBytes: 2000,
+        physicalChunkBytes: 2000,
+        dedupedBytes: 0,
+      };
       metadataClient.files = [
         makeFile('hot-file', 'hot.pdf', daysAgo(10)),
         makeFile('cold-file', 'cold.pdf', daysAgo(200)),
@@ -133,6 +141,22 @@ describe('AnalyticsService', () => {
       expect(overview.recommendations).toContain(
         '1 of your file(s) are classified cold — consider archiving to reduce hot-storage costs.',
       );
+    });
+
+    it('surfaces deduplication savings when dedupedBytes > 0', async () => {
+      metadataClient.systemStats = {
+        totalFiles: 2,
+        totalVersions: 2,
+        totalChunks: 6,
+        totalBytes: 4000,
+        logicalChunkBytes: 4000,
+        physicalChunkBytes: 2500,
+        dedupedBytes: 1500,
+      };
+
+      const overview = await analyticsService.getOverview('token');
+
+      expect(overview.recommendations.some((r) => r.includes('Deduplication is saving'))).toBe(true);
     });
 
     it('recommends provisioning when a node exceeds 80% capacity', async () => {

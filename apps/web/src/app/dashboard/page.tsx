@@ -105,6 +105,26 @@ export default function DashboardPage() {
               />
             </section>
 
+            {overview.storage.dedupedBytes > 0 && (
+              <section className="mt-4 flex items-center justify-between rounded-xl border border-emerald-800/50 bg-emerald-950/30 px-5 py-4">
+                <div>
+                  <p className="text-sm font-medium text-emerald-300">Deduplication</p>
+                  <p className="text-xs text-slate-400">
+                    Identical chunks are stored once via content-addressed storage.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-semibold text-emerald-300">
+                    {formatBytes(overview.storage.dedupedBytes)} saved
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {formatBytes(overview.storage.physicalChunkBytes)} stored of{' '}
+                    {formatBytes(overview.storage.logicalChunkBytes)} logical
+                  </p>
+                </div>
+              </section>
+            )}
+
             {overview.recommendations.length > 0 && (
               <section className="mt-8">
                 <h2 className="text-lg font-medium text-slate-100">Recommendations</h2>

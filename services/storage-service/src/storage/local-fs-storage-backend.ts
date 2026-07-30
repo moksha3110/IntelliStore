@@ -29,4 +29,13 @@ export class LocalFsStorageBackend implements StorageBackend {
   async delete(key: string): Promise<void> {
     await fs.rm(this.resolveKeyPath(key), { force: true });
   }
+
+  async exists(key: string): Promise<boolean> {
+    try {
+      await fs.access(this.resolveKeyPath(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }

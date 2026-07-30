@@ -67,11 +67,18 @@ describe('UploadService', () => {
     });
   });
 
+  // Three chunks of *distinct* content, so each is stored separately (no
+  // intra-file dedup) — exercises the plain chunk+store+register path.
+  const distinctBuffer = Buffer.concat([
+    Buffer.alloc(1000, 'a'),
+    Buffer.alloc(1000, 'b'),
+    Buffer.alloc(500, 'c'),
+  ]);
+
   it('stores each chunk in the backend and registers the file with matching metadata', async () => {
     metadataClient.registerFileResult = makeFileRegisterResult();
-    const buffer = Buffer.alloc(2500, 'x');
 
-    await uploadService.uploadNewFile('token-123', 'report.pdf', 'application/pdf', buffer);
+    await uploadService.uploadNewFile('token-123', 'report.pdf', 'application/pdf', distinctBuffer);
 
     expect(backend.store.size).toBe(3);
     expect(metadataClient.registerFileCalls).toHaveLength(1);
@@ -81,10 +88,43 @@ describe('UploadService', () => {
     expect(call.payload.fileName).toBe('report.pdf');
     expect(call.payload.chunks).toHaveLength(3);
     expect(call.payload.chunks.map((c) => c.sizeBytes)).toEqual([1000, 1000, 500]);
+    // Content-addressed keys.
+    expect(call.payload.chunks.every((c) => c.storageKey === `chunks/${c.checksum}`)).toBe(true);
 
     for (const chunk of call.payload.chunks) {
       expect(backend.store.has(chunk.storageKey)).toBe(true);
     }
+  });
+
+  it('deduplicates identical chunk content across uploads (content-addressed storage)', async () => {
+    metadataClient.registerFileResult = makeFileRegisterResult();
+
+    const first = await uploadService.uploadNewFile('t', 'a.bin', 'application/octet-stream', distinctBuffer);
+    expect(first.dedup).toEqual({ totalChunks: 3, storedChunks: 3, dedupedChunks: 0, bytesSaved: 0 });
+    const objectsAfterFirst = backend.store.size;
+    expect(objectsAfterFirst).toBe(3);
+
+    // Same content, different file name — every chunk should dedup.
+    const second = await uploadService.uploadNewFile('t', 'b.bin', 'application/octet-stream', distinctBuffer);
+    expect(second.dedup).toEqual({
+      totalChunks: 3,
+      storedChunks: 0,
+      dedupedChunks: 3,
+      bytesSaved: 2500,
+    });
+    // No new objects were written — stored exactly once.
+    expect(backend.store.size).toBe(objectsAfterFirst);
+  });
+
+  it('deduplicates repeated content within a single file', async () => {
+    metadataClient.registerFileResult = makeFileRegisterResult();
+    // 2500 identical bytes -> chunks [1000,1000,500]; the two 1000-byte chunks
+    // are identical content and collapse to one stored object.
+    const result = await uploadService.uploadNewFile('t', 'x.bin', 'text/plain', Buffer.alloc(2500, 'x'));
+
+    expect(result.dedup.totalChunks).toBe(3);
+    expect(result.dedup.dedupedChunks).toBe(1);
+    expect(backend.store.size).toBe(2);
   });
 
   it('publishes a chunk-uploaded event after successful registration', async () => {

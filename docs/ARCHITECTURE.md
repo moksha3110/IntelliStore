@@ -232,6 +232,30 @@ available at the time), once a node comes back.
   not a trained model — the same class of signal behind real tiering systems
   like S3 Intelligent-Tiering. See [ai-analytics scoring](#services).
 
+## Deduplication
+
+Chunks are **content-addressed**: a chunk's storage key *is* its SHA-256, so
+identical chunk content — whether within one file, across two files, or across
+users — maps to the same object and is stored exactly once. On upload,
+storage-service checks whether each chunk's key already exists and skips the
+write if so (dedup-on-write), returning per-upload stats
+(`storedChunks`/`dedupedChunks`/`bytesSaved`). System-wide savings are computed
+in metadata-service as logical chunk bytes (every chunk row) minus physical
+bytes (distinct storage keys), surfaced on the dashboard.
+
+Two honest caveats, both documented in code:
+
+- **Deletion needs reference counting.** Because a chunk can be shared, hard
+  deletes can't blindly remove chunk objects. The current model only
+  soft-deletes files and never removes chunk bytes, so this is deferred rather
+  than wrong; a production system would refcount references per storage key.
+- **Dedup and at-rest encryption trade off.** Content-addressing requires
+  identical plaintext to produce identical stored bytes, which naive
+  per-object encryption breaks. Preserving dedup under encryption needs
+  *convergent encryption* (derive the key from the content hash), which has its
+  own confirmed-plaintext caveats — which is why this project ships clean dedup
+  and documents the tradeoff rather than doing both half-correctly.
+
 ## Deliberate simplifications
 
 Called out honestly rather than hidden:

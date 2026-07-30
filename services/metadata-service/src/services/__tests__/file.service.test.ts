@@ -116,5 +116,13 @@ describe('FileService', () => {
     expect(stats.totalFiles).toBe(2); // deleted file excluded
     expect(stats.totalVersions).toBe(4); // 2 files x v1, 1 extra v2, 1 deleted file's v1
     expect(stats.totalBytes).toBe(1536 + 2000); // fileA's v1 (1024+512) + fileB's latest v2 (2000)
+
+    // sampleInput reuses the same two storage keys ('files/a/0','files/a/1')
+    // for all three files, so those chunks dedup. logical = every chunk row;
+    // physical = distinct storage keys.
+    // 7 chunk rows: 3 files x 2 v1 chunks + fileB's 1 v2 chunk.
+    expect(stats.logicalChunkBytes).toBe(3 * 1536 + 2000); // 6608
+    expect(stats.physicalChunkBytes).toBe(1024 + 512 + 2000); // 3 distinct keys = 3536
+    expect(stats.dedupedBytes).toBe(6608 - 3536); // 3072 saved by dedup
   });
 });
