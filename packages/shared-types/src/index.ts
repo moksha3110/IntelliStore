@@ -72,6 +72,14 @@ export interface JwtPayload {
   exp?: number;
 }
 
+// Domain events flow through a single topic exchange; each service binds its
+// own queue to the routing keys it cares about (fan-out, not a work queue).
+export const EVENTS_EXCHANGE = 'intellistore.events';
+export const ROUTING_KEYS = {
+  chunkUploaded: 'chunk.uploaded',
+  fileAccessed: 'file.accessed',
+} as const;
+
 export interface ChunkUploadedEvent {
   chunkId: string;
   storageKey: string;
@@ -80,12 +88,18 @@ export interface ChunkUploadedEvent {
 
 export interface ChunkUploadedBatchEvent {
   fileId: string;
+  ownerId: string;
+  fileName: string;
   versionId: string;
+  versionNumber: number;
   chunks: ChunkUploadedEvent[];
 }
 
 export interface FileAccessedEvent {
   fileId: string;
+  ownerId: string;
+  fileName: string;
   versionId: string;
+  versionNumber: number;
   accessedAt: string;
 }

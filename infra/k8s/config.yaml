@@ -35,6 +35,7 @@ data:
   STORAGE_SERVICE_URL: http://storage-service:4003
   REPLICATION_SERVICE_URL: http://replication-service:4004
   AI_ANALYTICS_SERVICE_URL: http://ai-analytics-service:4005
+  NOTIFICATION_SERVICE_URL: http://notification-service:4006
 
   # Queues.
   CHUNK_UPLOADS_QUEUE: chunk-uploads

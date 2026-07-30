@@ -180,3 +180,30 @@ export function getAnalyticsOverview(): Promise<OverviewDto> {
 export function getFileRecommendations(): Promise<FileRecommendationDto[]> {
   return getJson('/api/analytics/files');
 }
+
+export interface NotificationDto {
+  id: string;
+  ownerId: string;
+  type: string;
+  message: string;
+  fileId: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListDto {
+  notifications: NotificationDto[];
+  unreadCount: number;
+}
+
+export function getNotifications(): Promise<NotificationListDto> {
+  return getJson('/api/notifications');
+}
+
+export function markNotificationRead(id: string): Promise<{ id: string; isRead: true }> {
+  return postJson(`/api/notifications/${id}/read`, {});
+}
+
+export function markAllNotificationsRead(): Promise<{ updated: number }> {
+  return postJson('/api/notifications/read-all', {});
+}

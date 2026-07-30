@@ -126,7 +126,23 @@ capped access frequency weighted 0.3), not a trained model — see
 
 ---
 
-## api-gateway (:4000) & notification-service (:4006)
+## notification-service — `http://localhost:4006`
 
-Skeletons — `GET /health` only. The gateway is intended as the single public
-ingress origin; notification-service for email/websocket notifications.
+All routes Bearer-authenticated and owner-scoped. Notifications are created by
+consuming domain events (file uploaded / downloaded) off the RabbitMQ topic
+exchange, so this service reacts independently of replication and analytics.
+
+| Method | Route | Description |
+| ------ | ----- | ----------- |
+| GET | `/notifications` | Caller's notifications (newest first) + `unreadCount` |
+| POST | `/notifications/:id/read` | Mark one notification read |
+| POST | `/notifications/read-all` | Mark all the caller's notifications read |
+| GET | `/health` | Liveness |
+
+## api-gateway — `http://localhost:4000`
+
+The single public origin. Proxies to every service under a prefix
+(`/api/auth`, `/api/files`, `/api/storage`, `/api/replication`,
+`/api/analytics`, `/api/notifications`), applies rate limiting on `/api/*`, and
+exposes `GET /health/services` (aggregate upstream health). The frontend talks
+only to this origin. See [ARCHITECTURE](./ARCHITECTURE.md).

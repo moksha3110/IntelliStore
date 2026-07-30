@@ -7,14 +7,21 @@ function rewrite(rewriteTo: string, path: string): string {
 }
 
 describe('gateway routes', () => {
-  it('exposes exactly the five upstream prefixes', () => {
+  it('exposes exactly the upstream prefixes', () => {
     expect(routes.map((r) => r.prefix)).toEqual([
       '/api/auth',
       '/api/files',
       '/api/storage',
       '/api/replication',
       '/api/analytics',
+      '/api/notifications',
     ]);
+  });
+
+  it('rewrites notification paths to the notification-service base', () => {
+    const notif = routes.find((r) => r.prefix === '/api/notifications')!;
+    expect(notif.target).toContain('4006');
+    expect(rewrite(notif.rewriteTo, '/abc/read')).toBe('/notifications/abc/read');
   });
 
   it('rewrites auth paths to the auth-service base', () => {

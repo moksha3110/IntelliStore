@@ -18,6 +18,7 @@ export const routes: Route[] = [
   { prefix: '/api/storage', target: config.upstreams.storage, rewriteTo: '/files' },
   { prefix: '/api/replication', target: config.upstreams.replication, rewriteTo: '' },
   { prefix: '/api/analytics', target: config.upstreams.aiAnalytics, rewriteTo: '/analytics' },
+  { prefix: '/api/notifications', target: config.upstreams.notification, rewriteTo: '/notifications' },
 ];
 
 export function mountProxies(app: Express, logger: Logger): void {

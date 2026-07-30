@@ -34,7 +34,14 @@ export class UploadService {
     const result = await this.registerWithCleanup(chunkKeys, () =>
       this.metadataClient.registerFile(bearerToken, { fileName, ...payload }),
     );
-    await this.publishChunkUploaded(result.file.id, result.version.id, result.chunks);
+    await this.publishChunkUploaded({
+      fileId: result.file.id,
+      ownerId: result.file.ownerId,
+      fileName: result.file.fileName,
+      versionId: result.version.id,
+      versionNumber: result.version.versionNumber,
+      chunks: result.chunks,
+    });
     return result;
   }
 
@@ -49,19 +56,35 @@ export class UploadService {
     const result = await this.registerWithCleanup(chunkKeys, () =>
       this.metadataClient.addVersion(bearerToken, fileId, payload),
     );
-    await this.publishChunkUploaded(fileId, result.version.id, result.chunks);
+    // The addVersion response carries the version but not the owning file, so
+    // fetch the file record for the owner/name the notification event needs.
+    const detail = await this.metadataClient.getFileDetail(bearerToken, fileId);
+    await this.publishChunkUploaded({
+      fileId,
+      ownerId: detail.file.ownerId,
+      fileName: detail.file.fileName,
+      versionId: result.version.id,
+      versionNumber: result.version.versionNumber,
+      chunks: result.chunks,
+    });
     return result;
   }
 
-  private async publishChunkUploaded(
-    fileId: string,
-    versionId: string,
-    chunks: ChunkDto[],
-  ): Promise<void> {
+  private async publishChunkUploaded(input: {
+    fileId: string;
+    ownerId: string;
+    fileName: string;
+    versionId: string;
+    versionNumber: number;
+    chunks: ChunkDto[];
+  }): Promise<void> {
     await this.eventPublisher.publishChunkUploaded({
-      fileId,
-      versionId,
-      chunks: chunks.map((chunk) => ({
+      fileId: input.fileId,
+      ownerId: input.ownerId,
+      fileName: input.fileName,
+      versionId: input.versionId,
+      versionNumber: input.versionNumber,
+      chunks: input.chunks.map((chunk) => ({
         chunkId: chunk.id,
         storageKey: chunk.storageKey,
         sizeBytes: chunk.sizeBytes,

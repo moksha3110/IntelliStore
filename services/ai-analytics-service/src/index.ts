@@ -1,5 +1,9 @@
-import { connectWithRetry, consumeJson } from '@intellistore/shared-queue';
-import type { FileAccessedEvent } from '@intellistore/shared-types';
+import { connectWithRetry, subscribeEvent } from '@intellistore/shared-queue';
+import {
+  EVENTS_EXCHANGE,
+  ROUTING_KEYS,
+  type FileAccessedEvent,
+} from '@intellistore/shared-types';
 import { config } from './config';
 import { createApp } from './app';
 import { accessStatsRepository, logger } from './container';
@@ -14,11 +18,17 @@ async function main(): Promise<void> {
   });
   const channel = await connection.createChannel();
 
-  await consumeJson<FileAccessedEvent>(channel, config.fileAccessQueue, async (event) => {
-    await accessStatsRepository.recordAccess(event.fileId, event.accessedAt);
-    logger.info({ fileId: event.fileId }, 'recorded file access');
-  });
-  logger.info(`consuming queue "${config.fileAccessQueue}"`);
+  await subscribeEvent<FileAccessedEvent>(
+    channel,
+    EVENTS_EXCHANGE,
+    config.fileAccessQueue,
+    [ROUTING_KEYS.fileAccessed],
+    async (event) => {
+      await accessStatsRepository.recordAccess(event.fileId, event.accessedAt);
+      logger.info({ fileId: event.fileId }, 'recorded file access');
+    },
+  );
+  logger.info(`subscribed to "${ROUTING_KEYS.fileAccessed}" via queue "${config.fileAccessQueue}"`);
 
   const app = createApp(logger);
   app.listen(config.port, () => {

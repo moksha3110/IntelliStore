@@ -46,7 +46,10 @@ export class DownloadService {
 
     await this.eventPublisher.publishFileAccessed({
       fileId,
+      ownerId: fileDetail.file.ownerId,
+      fileName: fileDetail.file.fileName,
       versionId: versionDetail.version.id,
+      versionNumber: versionDetail.version.versionNumber,
       accessedAt: new Date().toISOString(),
     });
 

@@ -10,6 +10,7 @@ export const config = {
     storage: process.env.STORAGE_SERVICE_URL ?? 'http://localhost:4003',
     replication: process.env.REPLICATION_SERVICE_URL ?? 'http://localhost:4004',
     aiAnalytics: process.env.AI_ANALYTICS_SERVICE_URL ?? 'http://localhost:4005',
+    notification: process.env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:4006',
   },
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000),

@@ -1,5 +1,9 @@
-import { connectWithRetry, consumeJson } from '@intellistore/shared-queue';
-import type { ChunkUploadedBatchEvent } from '@intellistore/shared-types';
+import { connectWithRetry, subscribeEvent } from '@intellistore/shared-queue';
+import {
+  EVENTS_EXCHANGE,
+  ROUTING_KEYS,
+  type ChunkUploadedBatchEvent,
+} from '@intellistore/shared-types';
 import { config } from './config';
 import { createApp } from './app';
 import {
@@ -27,16 +31,24 @@ async function main(): Promise<void> {
   });
   const channel = await connection.createChannel();
 
-  await consumeJson<ChunkUploadedBatchEvent>(channel, config.chunkUploadsQueue, async (event) => {
-    logger.info(
-      { fileId: event.fileId, versionId: event.versionId, chunkCount: event.chunks.length },
-      'received chunk-uploads event',
-    );
-    for (const chunk of event.chunks) {
-      await replicationService.replicateChunk(chunk.chunkId, chunk.storageKey, chunk.sizeBytes);
-    }
-  });
-  logger.info(`consuming queue "${config.chunkUploadsQueue}"`);
+  // Own queue bound to the exchange, so this consumes independently of any
+  // other subscriber (analytics, notifications) to the same events.
+  await subscribeEvent<ChunkUploadedBatchEvent>(
+    channel,
+    EVENTS_EXCHANGE,
+    config.chunkUploadsQueue,
+    [ROUTING_KEYS.chunkUploaded],
+    async (event) => {
+      logger.info(
+        { fileId: event.fileId, versionId: event.versionId, chunkCount: event.chunks.length },
+        'received chunk-uploaded event',
+      );
+      for (const chunk of event.chunks) {
+        await replicationService.replicateChunk(chunk.chunkId, chunk.storageKey, chunk.sizeBytes);
+      }
+    },
+  );
+  logger.info(`subscribed to "${ROUTING_KEYS.chunkUploaded}" via queue "${config.chunkUploadsQueue}"`);
 
   heartbeatMonitor.start(config.heartbeatSweepIntervalMs);
   logger.info(

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { clearStoredSession, getStoredSession, type StoredUser } from '../lib/auth-storage';
+import { NotificationBell } from './NotificationBell';
 
 export function TopNav() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export function TopNav() {
           </Link>
           {user ? (
             <>
+              <NotificationBell />
               <span className="text-brand-300">{user.displayName}</span>
               <button
                 onClick={handleLogout}

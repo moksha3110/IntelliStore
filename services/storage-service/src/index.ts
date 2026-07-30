@@ -16,13 +16,7 @@ async function main(): Promise<void> {
     password: config.RABBITMQ_PASSWORD,
   });
   const channel = await connection.createChannel();
-  initServices(
-    new RabbitMqEventPublisher(
-      channel,
-      { chunkUploads: config.chunkUploadsQueue, fileAccess: config.fileAccessQueue },
-      logger,
-    ),
-  );
+  initServices(new RabbitMqEventPublisher(channel, logger));
 
   const app = createApp(logger);
   app.listen(config.port, () => {

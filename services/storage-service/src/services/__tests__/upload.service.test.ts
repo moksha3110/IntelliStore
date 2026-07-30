@@ -99,7 +99,10 @@ describe('UploadService', () => {
     expect(eventPublisher.publishedEvents).toHaveLength(1);
     const event = eventPublisher.publishedEvents[0];
     expect(event.fileId).toBe('file-1');
+    expect(event.ownerId).toBe('owner-1');
+    expect(event.fileName).toBe('report.pdf');
     expect(event.versionId).toBe('version-1');
+    expect(event.versionNumber).toBe(1);
     expect(event.chunks).toEqual([
       { chunkId: 'chunk-1', storageKey: 'session/0', sizeBytes: 1000 },
       { chunkId: 'chunk-2', storageKey: 'session/1', sizeBytes: 1000 },
@@ -136,7 +139,7 @@ describe('UploadService', () => {
     expect(backend.store.size).toBe(0);
   });
 
-  it('adds a new version referencing the existing file id', async () => {
+  it('adds a new version referencing the existing file id and publishes an enriched event', async () => {
     metadataClient.addVersionResult = {
       version: {
         id: 'version-2',
@@ -147,7 +150,28 @@ describe('UploadService', () => {
         checksum: 'v2-checksum',
         createdAt: 'now',
       },
-      chunks: [],
+      chunks: [
+        {
+          id: 'chunk-v2',
+          fileVersionId: 'version-2',
+          chunkIndex: 0,
+          sizeBytes: 1500,
+          checksum: 'cv2',
+          storageKey: 'session/0',
+        },
+      ],
+    };
+    // uploadNewVersion looks up the owning file for the event's owner/name.
+    metadataClient.fileDetailResult = {
+      file: {
+        id: 'file-1',
+        ownerId: 'owner-1',
+        fileName: 'report.pdf',
+        isDeleted: false,
+        createdAt: 'now',
+        updatedAt: 'now',
+      },
+      versions: [],
     };
 
     await uploadService.uploadNewVersion(
@@ -160,5 +184,11 @@ describe('UploadService', () => {
     expect(metadataClient.addVersionCalls).toHaveLength(1);
     expect(metadataClient.addVersionCalls[0].fileId).toBe('file-1');
     expect(backend.store.size).toBe(2);
+
+    expect(eventPublisher.publishedEvents).toHaveLength(1);
+    const event = eventPublisher.publishedEvents[0];
+    expect(event.fileId).toBe('file-1');
+    expect(event.ownerId).toBe('owner-1');
+    expect(event.versionNumber).toBe(2);
   });
 });
