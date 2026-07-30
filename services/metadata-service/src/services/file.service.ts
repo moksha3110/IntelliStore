@@ -66,6 +66,19 @@ export class FileService {
 
   async listFiles(ownerId: string): Promise<FileWithLatestVersion[]> {
     const files = await this.fileRepository.listFilesByOwner(ownerId);
+    return this.withLatestVersions(files);
+  }
+
+  async searchFiles(ownerId: string, query: string): Promise<FileWithLatestVersion[]> {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) {
+      throw AppError.badRequest('Search query must not be empty');
+    }
+    const files = await this.fileRepository.searchByOwner(ownerId, trimmed);
+    return this.withLatestVersions(files);
+  }
+
+  private withLatestVersions(files: FileRecord[]): Promise<FileWithLatestVersion[]> {
     return Promise.all(
       files.map(async (file) => ({
         file,

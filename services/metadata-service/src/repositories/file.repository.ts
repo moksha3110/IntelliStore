@@ -114,6 +114,7 @@ export interface FileRepository {
   createFile(ownerId: string, fileName: string): Promise<FileRecord>;
   findFileById(id: string): Promise<FileRecord | null>;
   listFilesByOwner(ownerId: string): Promise<FileRecord[]>;
+  searchByOwner(ownerId: string, query: string): Promise<FileRecord[]>;
   softDeleteFile(id: string): Promise<void>;
   getSystemStats(): Promise<SystemStats>;
 
@@ -151,6 +152,20 @@ export class PgFileRepository implements FileRepository {
     const result = await this.pool.query<FileRow>(
       'SELECT * FROM files WHERE owner_id = $1 AND is_deleted = false ORDER BY created_at DESC',
       [ownerId],
+    );
+    return result.rows.map(toFile);
+  }
+
+  async searchByOwner(ownerId: string, query: string): Promise<FileRecord[]> {
+    // Case-insensitive substring match on the file name, owner-scoped. LIKE
+    // metacharacters (%, _, \) the user types are escaped so they match
+    // literally rather than acting as wildcards.
+    const pattern = `%${query.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    const result = await this.pool.query<FileRow>(
+      `SELECT * FROM files
+       WHERE owner_id = $1 AND is_deleted = false AND file_name ILIKE $2 ESCAPE '\\'
+       ORDER BY created_at DESC`,
+      [ownerId, pattern],
     );
     return result.rows.map(toFile);
   }

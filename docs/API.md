@@ -41,11 +41,12 @@ file id returns 404 (not 403), so existence isn't leaked.
 | ------ | ----- | ----------- |
 | POST | `/files` | Register a file + its first version and chunk list |
 | GET | `/files` | List the caller's files, each with its latest version |
+| GET | `/files/search?q=<term>` | Case-insensitive name search over the caller's files |
 | GET | `/files/:id` | File detail with all versions |
 | DELETE | `/files/:id` | Soft-delete a file |
 | POST | `/files/:id/versions` | Add a new version (chunk list) to a file |
 | GET | `/files/:id/versions/:versionNumber` | Version detail with its chunks |
-| GET | `/files/_stats` | System-wide totals (files/versions/chunks/bytes) |
+| GET | `/files/_stats` | System-wide totals (files/versions/chunks/bytes + dedup savings) |
 | GET | `/health` | Liveness |
 
 Register/version body:

@@ -37,11 +37,21 @@ fileRouter.get(
   }),
 );
 
-// Registered before "/:id" so "_stats" isn't captured as a file id.
+// Registered before "/:id" so "_stats"/"search" aren't captured as file ids.
 fileRouter.get(
   '/_stats',
   asyncHandler(async (_req, res) => {
     const result = await fileService.getSystemStats();
+    const body: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(200).json(body);
+  }),
+);
+
+fileRouter.get(
+  '/search',
+  asyncHandler(async (req, res) => {
+    const query = typeof req.query.q === 'string' ? req.query.q : '';
+    const result = await fileService.searchFiles(ownerId(req), query);
     const body: ApiResponse<typeof result> = { success: true, data: result };
     res.status(200).json(body);
   }),

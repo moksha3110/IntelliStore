@@ -87,6 +87,10 @@ export function listFiles(): Promise<FileWithLatestVersionDto[]> {
   return getJson('/api/files');
 }
 
+export function searchFiles(query: string): Promise<FileWithLatestVersionDto[]> {
+  return getJson(`/api/files/search?q=${encodeURIComponent(query)}`);
+}
+
 export async function uploadFile(file: File): Promise<unknown> {
   const formData = new FormData();
   formData.append('file', file);

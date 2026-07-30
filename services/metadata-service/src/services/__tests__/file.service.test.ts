@@ -100,6 +100,44 @@ describe('FileService', () => {
     await expect(fileService.deleteFile(OWNER_B, file.id)).rejects.toThrow(AppError);
   });
 
+  it('searches the caller\'s files by name, case-insensitively', async () => {
+    await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'Annual-Report.pdf' }));
+    await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'vacation.jpg' }));
+    await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'report-draft.docx' }));
+
+    const results = await fileService.searchFiles(OWNER_A, 'report');
+    expect(results.map((r) => r.file.fileName).sort()).toEqual([
+      'Annual-Report.pdf',
+      'report-draft.docx',
+    ]);
+  });
+
+  it('does not return another owner\'s files or soft-deleted files in search', async () => {
+    await fileService.registerFile(OWNER_B, sampleInput({ fileName: 'report-secret.pdf' }));
+    const { file: del } = await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'report-old.pdf' }));
+    await fileService.deleteFile(OWNER_A, del.id);
+    await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'report-live.pdf' }));
+
+    const results = await fileService.searchFiles(OWNER_A, 'report');
+    expect(results.map((r) => r.file.fileName)).toEqual(['report-live.pdf']);
+  });
+
+  it('rejects an empty search query', async () => {
+    await expect(fileService.searchFiles(OWNER_A, '   ')).rejects.toThrow(AppError);
+  });
+
+  it('returns files with their latest version from search', async () => {
+    const { file } = await fileService.registerFile(OWNER_A, sampleInput({ fileName: 'searchme.pdf' }));
+    await fileService.addVersion(OWNER_A, file.id, {
+      mimeType: 'application/pdf',
+      checksum: 'v2',
+      chunks: [{ chunkIndex: 0, sizeBytes: 999, checksum: 'c', storageKey: 'k' }],
+    });
+
+    const [result] = await fileService.searchFiles(OWNER_A, 'searchme');
+    expect(result.latestVersion?.versionNumber).toBe(2);
+  });
+
   it('computes system-wide stats across all owners, excluding soft-deleted files from totals', async () => {
     await fileService.registerFile(OWNER_A, sampleInput());
     const { file: fileB } = await fileService.registerFile(OWNER_B, sampleInput());

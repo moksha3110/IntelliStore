@@ -39,6 +39,18 @@ export class InMemoryFileRepository implements FileRepository {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  async searchByOwner(ownerId: string, query: string): Promise<FileRecord[]> {
+    const needle = query.toLowerCase();
+    return [...this.files.values()]
+      .filter(
+        (file) =>
+          file.ownerId === ownerId &&
+          !file.isDeleted &&
+          file.fileName.toLowerCase().includes(needle),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
   async softDeleteFile(id: string): Promise<void> {
     const file = this.files.get(id);
     if (file) file.isDeleted = true;

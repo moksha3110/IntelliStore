@@ -7,6 +7,7 @@ import {
   downloadFile,
   getAnalyticsOverview,
   getFileRecommendations,
+  searchFiles,
   uploadFile,
   type FileRecommendationDto,
   type OverviewDto,
@@ -23,6 +24,9 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  // null = no active search (show everything); a Set = the ids the backend matched.
+  const [matchedIds, setMatchedIds] = useState<Set<string> | null>(null);
 
   const loadData = useCallback(async () => {
     setError(null);
@@ -47,6 +51,31 @@ export default function DashboardPage() {
     }
     void loadData();
   }, [router, loadData]);
+
+  // Debounced server-side search: the backend does the owner-scoped name match,
+  // we just filter the recommendation rows to the ids it returns.
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length === 0) {
+      setMatchedIds(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchFiles(query);
+        if (!cancelled) setMatchedIds(new Set(results.map((r) => r.file.id)));
+      } catch (err) {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Search failed.');
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchQuery]);
+
+  const visibleFiles = matchedIds ? files.filter((f) => matchedIds.has(f.fileId)) : files;
 
   async function handleDownload(fileId: string, fileName: string) {
     try {
@@ -182,23 +211,36 @@ export default function DashboardPage() {
         )}
 
         <section className="mt-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-medium text-slate-100">Files</h2>
-            <label className="cursor-pointer rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500">
-              {isUploading ? 'Uploading…' : 'Upload file'}
+            <div className="flex items-center gap-3">
               <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileSelected}
-                disabled={isUploading}
-                className="hidden"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search files by name…"
+                className="w-56 rounded-md border border-brand-800/60 bg-brand-950/40 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none"
               />
-            </label>
+              <label className="cursor-pointer rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-500">
+                {isUploading ? 'Uploading…' : 'Upload file'}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelected}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
 
           {files.length === 0 ? (
             <p className="mt-4 text-sm text-slate-400">
               No files yet — upload one to see AI hot/cold recommendations.
+            </p>
+          ) : visibleFiles.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-400">
+              No files match “{searchQuery.trim()}”.
             </p>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-xl border border-brand-800/60">
@@ -215,7 +257,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-900/60">
-                  {files.map((file) => (
+                  {visibleFiles.map((file) => (
                     <tr key={file.fileId} className="text-slate-200">
                       <td className="px-4 py-3">{file.fileName}</td>
                       <td className="px-4 py-3">{formatBytes(file.sizeBytes)}</td>
