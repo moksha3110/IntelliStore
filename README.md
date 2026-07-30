@@ -13,6 +13,19 @@ and a full cloud-native path from `docker compose` to Kubernetes.
 > (reverse proxy + rate limiting) and `notification-service` reacts to domain
 > events off a RabbitMQ topic exchange — both fully built out.
 
+## Screenshots
+
+The analytics dashboard — storage totals, content-addressed deduplication
+savings, per-node replication health, and AI hot/cold classification per file:
+
+![IntelliStore analytics dashboard](docs/images/dashboard.png)
+
+Owner-scoped search — a debounced query hits the metadata-service search
+endpoint through the API gateway and filters the file list live (case-insensitive
+name match; note `Q3-Financial-Report.pdf` matched on lowercase `report`):
+
+![File search filtering the dashboard](docs/images/search.png)
+
 ## Architecture at a glance
 
 ```mermaid
