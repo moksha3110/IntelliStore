@@ -15,6 +15,18 @@ and a full cloud-native path from `docker compose` to Kubernetes.
 
 ## Screenshots
 
+Landing page — hero plus a live status board of all seven services behind the
+gateway:
+
+![IntelliStore landing page](docs/images/home.png)
+
+Authentication — a single screen toggles between sign-in and sign-up; sessions
+are JWT-based (access + refresh):
+
+| Sign in | Sign up |
+| ------- | ------- |
+| ![Sign in](docs/images/signin.png) | ![Sign up](docs/images/signup.png) |
+
 The analytics dashboard — storage totals, content-addressed deduplication
 savings, per-node replication health, and AI hot/cold classification per file:
 

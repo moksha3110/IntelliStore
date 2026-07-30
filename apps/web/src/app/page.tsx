@@ -1,13 +1,13 @@
 import Link from 'next/link';
 
 const services = [
-  { name: 'API Gateway', port: 4000, status: 'scaffolded' },
+  { name: 'API Gateway', port: 4000, status: 'live' },
   { name: 'Auth Service', port: 4001, status: 'live' },
   { name: 'Metadata Service', port: 4002, status: 'live' },
   { name: 'Storage Service', port: 4003, status: 'live' },
   { name: 'Replication Service', port: 4004, status: 'live' },
   { name: 'AI Analytics Service', port: 4005, status: 'live' },
-  { name: 'Notification Service', port: 4006, status: 'scaffolded' },
+  { name: 'Notification Service', port: 4006, status: 'live' },
 ];
 
 export default function Home() {
@@ -16,12 +16,13 @@ export default function Home() {
       <section className="bg-brand-gradient">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <p className="text-sm font-semibold uppercase tracking-widest text-brand-200">
-            Milestone 9 · AI Storage Analytics Dashboard
+            Distributed Systems · Cloud-Native · AI Analytics
           </p>
           <h1 className="mt-4 text-4xl font-bold text-white sm:text-5xl">IntelliStore</h1>
           <p className="mt-4 max-w-2xl text-lg text-brand-100">
-            AI-powered distributed storage platform — chunked uploads, automatic
-            replication, self-healing nodes, and AI-driven hot/cold tiering.
+            AI-powered distributed storage platform — chunked uploads with
+            deduplication, automatic replication, self-healing nodes, AI-driven
+            hot/cold tiering, and search, all behind a single API gateway.
           </p>
           <Link
             href="/login"
@@ -35,9 +36,10 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <h2 className="text-xl font-semibold text-slate-100">Platform services</h2>
         <p className="mt-1 text-sm text-slate-400">
-          Auth, metadata, chunked storage, replication (with node heartbeats and
-          self-healing), and AI analytics are live end to end. The API gateway and
-          notification service are still scaffolded skeletons.
+          Seven services live end to end: a public API gateway fronting auth,
+          metadata (with search), chunked storage (with deduplication),
+          replication with node heartbeats and self-healing, AI analytics, and
+          event-driven notifications.
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
