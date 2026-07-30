@@ -7,45 +7,49 @@ recommendations. It demonstrates distributed-systems patterns (chunking,
 replication, heartbeat monitoring, self-healing), event-driven microservices,
 and a full cloud-native path from `docker compose` to Kubernetes.
 
-> **Status:** all 11 milestones complete. The platform (8 services + web +
+> **Status:** all 15 milestones complete. The platform (8 services + web +
 > Postgres/Redis/RabbitMQ/MinIO) runs locally and on Kubernetes, verified
-> end-to-end on minikube. `api-gateway` and `notification-service` are
-> intentionally left as health-check-only skeletons (see
-> [ARCHITECTURE](./docs/ARCHITECTURE.md#deliberate-simplifications)).
+> end-to-end on minikube. `api-gateway` is the single public entry point
+> (reverse proxy + rate limiting) and `notification-service` reacts to domain
+> events off a RabbitMQ topic exchange — both fully built out.
 
 ## Architecture at a glance
 
 ```mermaid
 graph TD
   browser["Next.js dashboard"]
+  gw["api-gateway :4000"]
   subgraph app["Application services"]
     auth["auth :4001"]
     meta["metadata :4002"]
     storage["storage :4003"]
     repl["replication :4004"]
     ai["ai-analytics :4005"]
+    notif["notification :4006"]
   end
   subgraph infra["Infrastructure"]
     pg[("PostgreSQL")]
     mq{{"RabbitMQ"}}
     minio[("MinIO")]
   end
-  browser --> auth & meta & storage & repl & ai
-  auth & meta & repl & ai --> pg
+  browser --> gw
+  gw --> auth & meta & storage & repl & ai & notif
+  auth & meta & repl & ai & notif --> pg
   storage --> minio
   storage -. events .-> mq
-  mq -. consume .-> repl & ai
+  mq -. consume .-> repl & ai & notif
   repl --> minio
 ```
 
 | Service | Port | Does |
 | ------- | ---- | ---- |
+| api-gateway | 4000 | Single public origin: reverse proxy, rate limiting, CORS |
 | auth-service | 4001 | Users, bcrypt, JWT issue/verify |
-| metadata-service | 4002 | Files / versions / chunks, ownership, stats |
-| storage-service | 4003 | Chunk + hash uploads, MinIO persistence, reassembly |
+| metadata-service | 4002 | Files / versions / chunks, ownership, search, stats |
+| storage-service | 4003 | Chunk + hash uploads, dedup, MinIO persistence, reassembly |
 | replication-service | 4004 | Replication, node heartbeats, self-healing |
 | ai-analytics-service | 4005 | Hot/cold scoring, cross-service analytics |
-| api-gateway / notification | 4000 / 4006 | Skeletons |
+| notification-service | 4006 | Event-driven notifications off a RabbitMQ topic exchange |
 | web | 3000 | Next.js dashboard |
 
 Full detail in **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)**.
@@ -76,16 +80,22 @@ cp .env.example .env
 docker compose up -d          # Postgres, Redis, RabbitMQ, MinIO
 npm run build
 
-# run migrations (auth, metadata, replication, ai-analytics)
+# run migrations (auth, metadata, replication, ai-analytics, notification)
 npm run migrate --workspace=@intellistore/auth-service
 npm run migrate --workspace=@intellistore/metadata-service
 npm run migrate --workspace=@intellistore/replication-service
 npm run migrate --workspace=@intellistore/ai-analytics-service
+npm run migrate --workspace=@intellistore/notification-service
 
-# run services (each in its own terminal) + the frontend
-npm run dev --workspace=@intellistore/auth-service   # ...4001–4005
+# run every service + the gateway + the frontend (each in its own terminal,
+# or `npm run dev` from the root to start them all)
+npm run dev --workspace=@intellistore/api-gateway    # :4000 (public origin)
+npm run dev --workspace=@intellistore/auth-service   # ...4001–4006
 npm run dev --workspace=@intellistore/web            # http://localhost:3000
 ```
+
+The browser talks only to the gateway on `:4000`; the individual services stay
+private behind it.
 
 Running on Kubernetes, image builds, env vars, and troubleshooting:
 **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)**.
@@ -112,6 +122,17 @@ Running on Kubernetes, image builds, env vars, and troubleshooting:
 - **AI hot/cold analytics** — a deterministic, explainable scoring heuristic
   (recency half-life + capped frequency), honestly *not* a trained model, with a
   cross-service overview and a real dashboard.
+- **Content-addressed deduplication** — a chunk's storage key is the SHA-256 of
+  its bytes, so identical chunks (across files, versions, or users) are stored
+  once; the dashboard surfaces the bytes saved.
+- **API gateway** — one public origin fronts every service (`/api/*` prefixes),
+  with rate limiting and a single CORS authority, so the browser talks to just
+  one host and services stay private.
+- **Event-driven notifications** — a topic exchange fans domain events
+  (uploads, downloads) out to an independent consumer, so notifications don't
+  compete with replication or analytics for the same messages.
+- **Owner-scoped search** — case-insensitive file-name search with LIKE
+  metacharacters escaped, wired to a debounced dashboard search box.
 - **Cloud-native path** — one repo runs via `docker compose` locally and as a
   full Kubernetes deployment (Deployments, StatefulSet, ConfigMap/Secret,
   migration Jobs).
@@ -138,3 +159,7 @@ Running on Kubernetes, image builds, env vars, and troubleshooting:
 9. AI storage analytics dashboard *(done)*
 10. Kubernetes deployment *(done)*
 11. Architecture & deployment documentation *(done)*
+12. API gateway (reverse proxy + rate limiting) *(done)*
+13. Event-driven notification service *(done)*
+14. Content-addressed deduplication *(done)*
+15. Owner-scoped file search *(done)*
