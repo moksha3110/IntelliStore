@@ -15,6 +15,11 @@ and a full cloud-native path from `docker compose` to Kubernetes.
 
 ## Screenshots
 
+End-to-end walkthrough — landing page, JWT sign-in, the analytics dashboard
+(deduplication savings + node health), and live owner-scoped search:
+
+![IntelliStore walkthrough](docs/images/walkthrough.gif)
+
 Landing page — hero plus a live status board of all seven services behind the
 gateway:
 
